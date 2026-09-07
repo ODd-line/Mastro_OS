@@ -1,6 +1,6 @@
 /**
  * @file hal_rtc.c
- * @brief PCF85063 real-time clock access over the Waveshare BSP I2C bus.
+ * @brief PCF85063 real-time clock access over the board I2C bus.
  */
 
 #include "hal/hal_rtc.h"
@@ -9,10 +9,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "bsp/esp32_s3_touch_amoled_1_8.h"
 #include "driver/i2c_master.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "hal/watch_board.h"
 
 #define HAL_RTC_I2C_ADDRESS       0x51U
 #define HAL_RTC_FIRST_TIME_REG    0x04U
@@ -38,7 +38,7 @@ esp_err_t hal_rtc_init(void)
         return ESP_OK;
     }
 
-    i2c_master_bus_handle_t bus = bsp_i2c_get_handle();
+    i2c_master_bus_handle_t bus = watch_board_i2c_get_handle();
     if(bus == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -50,7 +50,7 @@ esp_err_t hal_rtc_init(void)
     const i2c_device_config_t device_config = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = HAL_RTC_I2C_ADDRESS,
-        .scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ,
+        .scl_speed_hz = watch_board_i2c_clock_hz(),
     };
     ESP_RETURN_ON_ERROR(i2c_master_bus_add_device(bus, &device_config, &s_rtc_state.device),
                         TAG,

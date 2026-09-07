@@ -1,6 +1,6 @@
 /**
  * @file hal_touch.c
- * @brief Waveshare CST820-compatible touch bridge.
+ * @brief Board touch bridge.
  */
 
 #include "hal/hal_touch.h"
@@ -9,9 +9,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "bsp/touch.h"
 #include "esp_lcd_touch.h"
 #include "esp_log.h"
+#include "hal/watch_board.h"
 #include "ui/ui_defs.h"
 
 typedef struct {
@@ -29,15 +29,15 @@ esp_err_t hal_touch_init(void)
     }
 
     memset(&s_touch_context, 0, sizeof(s_touch_context));
-    const esp_err_t ret = bsp_touch_new(NULL, &s_touch_context.touch_handle);
+    const esp_err_t ret = watch_board_touch_new(&s_touch_context.touch_handle);
     if(ret != ESP_OK) {
-        ESP_LOGE(TAG, "Waveshare BSP touch initialization failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "board touch initialization failed: %s", esp_err_to_name(ret));
         hal_touch_deinit();
         return ret;
     }
 
     s_touch_context.initialized = true;
-    ESP_LOGI(TAG, "CST820-compatible touch ready");
+    ESP_LOGI(TAG, "board touch ready");
     return ESP_OK;
 }
 

@@ -1,6 +1,6 @@
 # Mastro OS
 
-Mastro OS is an Apple Watch-inspired smartwatch firmware built with ESP-IDF and LVGL for the Waveshare ESP32-S3-Touch-AMOLED-1.8 V2. It provides a touch-first watch face, app launcher, Control Center, settings, local RTC timekeeping, Wi-Fi synchronization, weather data and guarded build, backup, flash and restore workflows.
+Mastro OS is an Apple Watch-inspired smartwatch platform built with ESP-IDF and LVGL. Its shared UI and services are separated from board hardware through selectable adapters. The Waveshare ESP32-S3-Touch-AMOLED-1.8 V2 is currently the only verified profile.
 
 ## Hardware target
 
@@ -11,7 +11,7 @@ Mastro OS is an Apple Watch-inspired smartwatch firmware built with ESP-IDF and 
 - PCF85063 real-time clock
 - TCA9554 peripheral reset and power control
 
-The firmware performs flash and PSRAM preflight checks before initializing board peripherals. It is not intended for other ESP32-S3 boards without a hardware adaptation layer.
+The firmware performs profile-specific flash and PSRAM preflight checks before initializing board peripherals. See [BOARD_SUPPORT.md](BOARD_SUPPORT.md) for verified and planned targets. Do not flash another model under the Waveshare profile.
 
 ## Implemented features
 
@@ -34,12 +34,15 @@ Most launcher entries currently open reusable app-shell views rather than comple
 
 - `main.c` - hardware preflight and firmware startup
 - `hal/` - AMOLED, touch and RTC hardware abstraction
+- `hal/watch_board.h` - board adapter contract for additional ESP32 watches
 - `ui/` - LVGL screens, gestures and display lifecycle
 - `apps/` - launcher application registry
 - `utils/` - Wi-Fi, time, weather and settings services
 - `astronomy/` - Solar Dial calculations and host tests
 - `scripts/` - tests, safe flashing, restore and release packaging
 - `HARDWARE.md` - board-specific build and flashing requirements
+- `BOARD_SUPPORT.md` - verified targets and port acceptance requirements
+- `SECURITY.md` - security posture, limitations and secret handling
 
 ## Build and test
 
@@ -53,8 +56,13 @@ This runs the host Solar Dial tests and a complete ESP-IDF firmware build. To bu
 
 ```bash
 source "$HOME/esp/esp-idf-v5.5.5/export.sh"
-idf.py build
+idf.py -D WATCH_BOARD=waveshare_amoled_1_8_v2 reconfigure build
 ```
+
+ESP-IDF compiles the C sources with warnings enabled and is the project's type
+and link validation. This repository has no JavaScript or TypeScript sources,
+`package.json`, ESLint configuration or `tsconfig.json`; ESLint and `tsc` are
+therefore not project checks and should not be installed solely for this firmware.
 
 ## Safe flashing
 
@@ -82,7 +90,20 @@ Generated binaries and checksums are written to `release/`. Publish those files 
 
 ## Privacy and security
 
-Wi-Fi credentials are entered on the watch and stored locally in NVS. No credentials should be committed to this repository. Bluetooth phone pairing is not currently implemented, and launcher app shells must not be presented as connected phone or health services.
+Read [SECURITY.md](SECURITY.md) before entering real network credentials or
+sharing a flash backup. The current development configuration stores the Wi-Fi
+SSID and password in NVS without flash encryption. Anyone with physical access
+to the watch or a complete flash backup may be able to recover them.
+
+Weather requests use HTTPS with ESP-IDF's trusted certificate bundle. SNTP time
+sync is not cryptographically authenticated and must not be treated as a trusted
+time source for security decisions. Secure boot, flash encryption, signed OTA,
+Bluetooth pairing, remote APIs and account authentication are not implemented.
+Release SHA-256 files detect accidental corruption but do not prove who created
+an image.
+
+Do not commit credentials, distribute files from `backups/`, or present launcher
+app shells as connected phone, health or emergency services.
 
 ## Project status
 

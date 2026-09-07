@@ -8,11 +8,8 @@
 #include <inttypes.h>
 
 #include "apps/app_registry.h"
-#include "bsp/esp32_s3_touch_amoled_1_8.h"
-#include "esp_check.h"
 #include "esp_err.h"
 #include "esp_flash.h"
-#include "esp_io_expander.h"
 #include "esp_log.h"
 #include "esp_psram.h"
 #include "esp_task_wdt.h"
@@ -20,6 +17,7 @@
 #include "freertos/task.h"
 #include "hal/hal_display.h"
 #include "hal/hal_touch.h"
+#include "hal/watch_board.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "ui/ui_defs.h"
@@ -31,7 +29,6 @@
 static const char *TAG = "watch_os";
 
 static bool hardware_preflight(void);
-static esp_err_t hardware_release_peripherals(void);
 static void gui_task(void *task_parameter);
 
 void app_main(void)
@@ -51,7 +48,7 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    ESP_ERROR_CHECK(hardware_release_peripherals());
+    ESP_ERROR_CHECK(watch_board_release_peripherals());
     lv_init();
     ESP_ERROR_CHECK(time_utils_init());
     ESP_ERROR_CHECK(weather_service_init());
@@ -78,6 +75,7 @@ void app_main(void)
 
 static bool hardware_preflight(void)
 {
+    const watch_board_profile_t *board = watch_board_get_profile();
     uint32_t flash_size_bytes = 0;
     const esp_err_t flash_ret = esp_flash_get_size(NULL, &flash_size_bytes);
     const size_t psram_size_bytes = esp_psram_get_size();
@@ -88,44 +86,22 @@ static bool hardware_preflight(void)
     }
 
     ESP_LOGI(TAG,
-             "hardware preflight: flash=%" PRIu32 " MB, PSRAM=%u MB",
+             "hardware preflight for %s: flash=%" PRIu32 " MB, PSRAM=%u MB",
+             board->name,
              flash_size_bytes / (1024U * 1024U),
              (unsigned)(psram_size_bytes / (1024U * 1024U)));
 
-    if(flash_size_bytes < (16U * 1024U * 1024U)) {
-        ESP_LOGE(TAG, "expected at least 16 MB flash");
+    if(flash_size_bytes < board->minimum_flash_bytes) {
+        ESP_LOGE(TAG, "board profile requires more flash");
         return false;
     }
 
-    if(!esp_psram_is_initialized() || psram_size_bytes < (7U * 1024U * 1024U)) {
-        ESP_LOGE(TAG, "expected initialized 8 MB PSRAM");
+    if(!esp_psram_is_initialized() || psram_size_bytes < board->minimum_psram_bytes) {
+        ESP_LOGE(TAG, "board profile requires more initialized PSRAM");
         return false;
     }
 
     return true;
-}
-
-static esp_err_t hardware_release_peripherals(void)
-{
-    const uint32_t reset_mask = (1U << 0) | (1U << 1) | (1U << 2);
-    esp_io_expander_handle_t io_expander = bsp_io_expander_init();
-
-    if(io_expander == NULL) {
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_dir(io_expander, reset_mask, IO_EXPANDER_OUTPUT),
-                        TAG,
-                        "failed to configure peripheral reset outputs");
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, reset_mask, 0),
-                        TAG,
-                        "failed to assert peripheral resets");
-    vTaskDelay(pdMS_TO_TICKS(20));
-    ESP_RETURN_ON_ERROR(esp_io_expander_set_level(io_expander, reset_mask, 1),
-                        TAG,
-                        "failed to release peripheral resets");
-    vTaskDelay(pdMS_TO_TICKS(200));
-    return ESP_OK;
 }
 
 static void gui_task(void *task_parameter)

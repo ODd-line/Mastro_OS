@@ -1,6 +1,6 @@
 /**
  * @file hal_display.c
- * @brief Waveshare CO5300 QSPI display bridge for LVGL 8.
+ * @brief Board display bridge for LVGL 8.
  */
 
 #include "hal/hal_display.h"
@@ -10,15 +10,13 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "bsp/display.h"
-#include "bsp/esp32_s3_touch_amoled_1_8.h"
 #include "config.h"
-#include "driver/spi_common.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
+#include "hal/watch_board.h"
 #include "ui/ui_defs.h"
 
 #define HAL_DISPLAY_BUFFER_CAPS (MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_8BIT)
@@ -61,16 +59,13 @@ esp_err_t hal_display_init(void)
     memset(&s_display_state, 0, sizeof(s_display_state));
     s_display_state.brightness_percent = WATCH_OS_ACTIVE_BRIGHTNESS_PERCENT;
 
-    const bsp_display_config_t display_config = {
-        .max_transfer_sz = (int)(UI_SCREEN_WIDTH * UI_DISPLAY_DRAW_BUFFER_LINES * sizeof(lv_color_t)),
-    };
-
-    ESP_GOTO_ON_ERROR(bsp_display_new(&display_config,
-                                      &s_display_state.panel_handle,
-                                      &s_display_state.panel_io_handle),
+    const size_t max_transfer_bytes = UI_SCREEN_WIDTH * UI_DISPLAY_DRAW_BUFFER_LINES * sizeof(lv_color_t);
+    ESP_GOTO_ON_ERROR(watch_board_display_new(max_transfer_bytes,
+                                              &s_display_state.panel_handle,
+                                              &s_display_state.panel_io_handle),
                       cleanup,
                       TAG,
-                      "Waveshare BSP display initialization failed");
+                      "board display initialization failed");
     ESP_GOTO_ON_ERROR(hal_display_alloc_draw_buffers(), cleanup, TAG, "draw buffer allocation failed");
 
     lv_disp_draw_buf_init(&s_display_state.lvgl_draw_buffer,
@@ -108,7 +103,7 @@ esp_err_t hal_display_init(void)
                       "initial brightness failed");
 
     s_display_state.initialized = true;
-    ESP_LOGI(TAG, "CO5300 display ready at %ux%u", UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT);
+    ESP_LOGI(TAG, "board display ready at %ux%u", UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT);
     return ESP_OK;
 
 cleanup:
@@ -134,7 +129,7 @@ void hal_display_deinit(void)
         s_display_state.panel_io_handle = NULL;
     }
 
-    (void)spi_bus_free(BSP_LCD_SPI_NUM);
+    (void)watch_board_display_bus_deinit();
     hal_display_free_draw_buffers();
     memset(&s_display_state, 0, sizeof(s_display_state));
 }
@@ -233,7 +228,7 @@ static esp_err_t hal_display_apply_brightness(uint8_t brightness_percent)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return bsp_display_brightness_set(brightness_percent);
+    return watch_board_display_set_brightness(brightness_percent);
 }
 
 static void hal_display_flush_callback(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_buffer)

@@ -1,3 +1,5 @@
+set(WATCH_BOARD_SOURCE "${CMAKE_CURRENT_LIST_DIR}/../hal/watch_board_waveshare_v2.c")
+
 idf_component_register(
     SRCS
         "${CMAKE_CURRENT_LIST_DIR}/../main.c"
@@ -6,6 +8,7 @@ idf_component_register(
         "${CMAKE_CURRENT_LIST_DIR}/../hal/hal_display.c"
         "${CMAKE_CURRENT_LIST_DIR}/../hal/hal_rtc.c"
         "${CMAKE_CURRENT_LIST_DIR}/../hal/hal_touch.c"
+        "${WATCH_BOARD_SOURCE}"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/ui_manager.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_app.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_face.c"
