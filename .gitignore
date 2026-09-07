@@ -1,0 +1,30 @@
+# ESP-IDF build output and downloaded managed components
+build/
+managed_components/
+sdkconfig.old
+
+# Device backups and generated release packages
+backups/
+release/*.bin
+release/SHA256SUMS
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Test and tooling caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+compile_commands.json

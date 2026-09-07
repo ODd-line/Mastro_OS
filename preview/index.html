@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>watch_OS Preview</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #1c1c1e;
+      --tile: #2c2c2e;
+      --text: #ffffff;
+      --muted: #a1a1a6;
+      --red: #ff3b30;
+      --green: #34c759;
+      --blue: #007aff;
+      --shadow: rgba(0, 0, 0, 0.45);
+      --watch-w: 368px;
+      --watch-h: 448px;
+      --radius: 52px;
+      --tile-radius: 24px;
+      --anim: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+      --watch-brightness: 1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, rgba(0, 122, 255, 0.18), transparent 35%),
+        radial-gradient(circle at bottom left, rgba(255, 59, 48, 0.16), transparent 32%),
+        linear-gradient(160deg, #0b0b0d, #151518 45%, #080809);
+      color: var(--text);
+      font-family: "SF Pro Display", "Avenir Next", "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+
+    .preview-shell {
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+    }
+
+    .preview-bar {
+      width: min(92vw, 720px);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(28, 28, 30, 0.72);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 60px var(--shadow);
+    }
+
+    .preview-bar button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      font: inherit;
+      transition: background var(--anim), transform var(--anim);
+    }
+
+    .preview-bar button:hover,
+    .preview-bar button.is-active {
+      background: rgba(0, 122, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      max-width: 560px;
+      line-height: 1.5;
+    }
+
+    .watch {
+      position: relative;
+      width: min(92vw, var(--watch-w));
+      aspect-ratio: 368 / 448;
+      border-radius: var(--radius);
+      background: #050505;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 30px 90px rgba(0, 0, 0, 0.65);
+      overflow: hidden;
+      filter: brightness(var(--watch-brightness));
+      transition: filter var(--anim);
+    }
+
+    .watch::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border-radius: calc(var(--radius) - 12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      pointer-events: none;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      padding: 22px 20px 20px;
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+      transition: opacity var(--anim), transform var(--anim);
+      pointer-events: none;
+      background: var(--bg);
+    }
+
+    .screen.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .screen[data-screen="face"] {
+      background: radial-gradient(circle at 50% 50%, #0b0b15 0%, #000000 74%);
+      overflow: hidden;
+    }
+
+    .time {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 158px;
+      z-index: 2;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -0.05em;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .date {
+      position: absolute;
+      right: 24px;
+      top: 26px;
+      z-index: 2;
+      text-align: right;
+      color: #8e8e93;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .day-chip {
+      position: absolute;
+      right: 24px;
+      top: 44px;
+      z-index: 2;
+      color: #ffffff;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .solar-stage {
+      position: absolute;
+      left: 50%;
+      top: 72px;
+      width: 196px;
+      height: 196px;
+      transform: translateX(-50%);
+    }
+
+    .solar-ring {
+      position: absolute;
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .solar-ring.time-ring {
+      width: 116px;
+      height: 116px;
+      background: conic-gradient(from -90deg, #ffffff 0deg 0deg, rgba(255, 255, 255, 0.08) 0deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+      opacity: 0.9;
+    }
+
+    .solar-ring.tectonic-ring {
+      width: 148px;
+      height: 148px;
+      background: conic-gradient(from -90deg, #3a6ea5 0deg 0deg, rgba(58, 110, 165, 0.14) 0deg 360deg);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+      opacity: 0.9;
+    }
+
+    .solar-ring.outer-solar-ring {
+      width: 180px;
+      height: 180px;
+      background: conic-gradient(from -90deg, transparent 0deg 360deg);
+      opacity: 1;
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    }
+
+    .solar-sun {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffd60a;
+      box-shadow: 0 0 10px rgba(255, 214, 10, 0.5);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .hour-marker {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.5);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .hour-marker.vertical {
+      width: 2px;
+      height: 5px;
+    }
+
+    .hour-marker.horizontal {
+      width: 5px;
+      height: 2px;
+    }
+
+    .face-complications {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .complication {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 108px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .complication.top-left {
+      left: 24px;
+      top: 42px;
+    }
+
+    .complication.top-right {
+      right: 24px;
+      top: 42px;
+      justify-content: flex-end;
+    }
+
+    .complication.bottom-left {
+      left: 24px;
+      bottom: 62px;
+    }
+
+    .complication.bottom-right {
+      right: 24px;
+      bottom: 62px;
+      justify-content: flex-end;
+    }
+
+    .weather-average {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 324px;
+      z-index: 2;
+      text-align: center;
+      color: #ffffff;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .ring-legend {
+      position: absolute;
+      top: 286px;
+      left: 0;
+      right: 0;
+      color: #74747a;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-align: center;
+    }
+
+    .complication-icon {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+
+    .complication.right-aligned {
+      flex-direction: row-reverse;
+    }
+
+    .sleep-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--anim);
+    }
+
+    .sleep-overlay.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sleep-overlay span {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 10px 14px;
+      border-radius: 999px;
+    }
+
+    .screen[data-screen="grid"] .screen-title {
+      display: none;
+    }
+
+    .screen[data-screen="settings"] {
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: 56px;
+    }
+
+    .screen[data-screen="settings"]::-webkit-scrollbar {
+      display: none;
+    }
+
+    .grid-scroll {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .grid-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .app-grid {
+      position: relative;
+      width: 100%;
+      min-height: 100%;
+    }
+
+    .app-icon {
+      position: absolute;
+      border: 0;
+      border-radius: 50%;
+      color: var(--text);
+      font: inherit;
+      font-size: 25px;
+      font-weight: 600;
+      letter-spacing: 0;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+      cursor: pointer;
+      transition: width var(--anim), height var(--anim), left var(--anim), top var(--anim), opacity var(--anim), transform var(--anim);
+      display: grid;
+      place-items: center;
+    }
+
+    .control-card,
+    .settings-card,
+    .app-card {
+      background: transparent;
+    }
+
+    .control-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .tile {
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 18px;
+      padding: 11px 8px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+      transition: transform var(--anim), opacity var(--anim);
+    }
+
+    .tile:hover {
+      transform: translateY(-1px);
+    }
+
+    .tile-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.9);
+      transition: background var(--anim), opacity var(--anim);
+    }
+
+    .tile-icon-wrap svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .settings-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .setting-row {
+      background: var(--tile);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .setting-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-size: 15px;
+    }
+
+    .setting-value {
+      color: var(--muted);
+    }
+
+    .setting-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+      line-height: 1.45;
+    }
+
+    .setting-fields {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .setting-input {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      padding: 12px 14px;
+      box-sizing: border-box;
+    }
+
+    .setting-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .setting-action {
+      border: 0;
+      border-radius: 14px;
+      background: var(--blue);
+      color: var(--text);
+      font: inherit;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .slider {
+      width: 100%;
+      margin-top: 12px;
+      accent-color: var(--blue);
+    }
+
+    .switch {
+      width: 46px;
+      height: 28px;
+      border-radius: 999px;
+      background: #4b4b4e;
+      position: relative;
+      cursor: pointer;
+      transition: background var(--anim);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: white;
+      transition: transform var(--anim);
+    }
+
+    .switch.is-on {
+      background: var(--green);
+    }
+
+    .switch.is-on::after {
+      transform: translateX(18px);
+    }
+
+    .app-hero {
+      min-height: 178px;
+      margin-top: 28px;
+      border-radius: 22px;
+      padding: 22px;
+      display: grid;
+      align-content: center;
+      gap: 12px;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .app-state-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 28px;
+    }
+
+    .app-state-title {
+      font-size: 22px;
+      font-weight: 650;
+    }
+
+    .app-state-detail {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .nav-pill {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      width: 120px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateX(-50%);
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-shell">
+    <div class="preview-bar">
+      <button data-nav="face" class="is-active">Face</button>
+      <button data-nav="grid">Grid</button>
+      <button data-nav="control">Control</button>
+      <button data-nav="settings">Settings</button>
+      <button id="add-app-button">Add Demo App</button>
+    </div>
+    <div class="hint">Static browser preview of the current LVGL/ESP32 UI flow. Use the top controls or tap app icons to simulate launcher navigation and app extensibility.</div>
+    <div class="watch">
+      <section class="screen is-visible" data-screen="face">
+        <div class="time" id="face-time">09:41</div>
+        <div class="date" id="face-date">04 SEP</div>
+        <div class="day-chip" id="face-day">FRI</div>
+        <div class="solar-stage">
+          <div class="solar-ring time-ring" id="time-ring"></div>
+          <div class="solar-ring tectonic-ring" id="tectonic-ring"></div>
+          <div class="solar-ring outer-solar-ring" id="solar-ring"></div>
+          <div class="hour-marker vertical" style="left:50%; top:2px;"></div>
+          <div class="hour-marker horizontal" style="left:194px; top:50%;"></div>
+          <div class="hour-marker vertical" style="left:50%; top:194px;"></div>
+          <div class="hour-marker horizontal" style="left:2px; top:50%;"></div>
+          <div class="solar-sun" id="solar-sun"></div>
+        </div>
+        <div class="face-complications">
+          <div class="complication top-left">
+            <div class="complication-icon" style="background:#ff9f0a"></div>
+            <div id="sunrise-value">6:12</div>
+          </div>
+          <div class="complication bottom-left">
+            <div class="complication-icon" style="background:#007aff"></div>
+            <div id="weather-low-value">L 18C</div>
+          </div>
+          <div class="complication bottom-right right-aligned">
+            <div class="complication-icon" style="background:#ff3b30"></div>
+            <div id="weather-high-value">H 28C</div>
+          </div>
+        </div>
+        <div class="ring-legend">TIME&nbsp;&nbsp; PLATE&nbsp;&nbsp; SUN</div>
+        <div class="weather-average" id="weather-average-value">23C AVG</div>
+      </section>
+
+      <section class="screen" data-screen="grid">
+        <div class="screen-title">Apps</div>
+        <div class="grid-scroll">
+          <div class="app-grid" id="app-grid"></div>
+        </div>
+      </section>
+
+      <section class="screen" data-screen="control">
+        <div class="screen-title">Control Center</div>
+        <div class="control-card">
+          <div class="control-status"><span id="control-time">09:41</span><span>Wi-Fi online</span></div>
+          <div class="tiles" id="control-tiles"></div>
+          <input class="slider" id="control-brightness-slider" aria-label="Brightness" type="range" min="10" max="100" value="72" />
+        </div>
+      </section>
+
+      <section class="screen" data-screen="settings">
+        <div class="screen-title">Settings</div>
+        <div class="settings-card">
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Brightness</span>
+                <span class="setting-value" id="brightness-value">72%</span>
+              </div>
+              <input class="slider" id="brightness-slider" type="range" min="10" max="100" value="72" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Raise to Wake</span>
+                <div class="switch is-on" data-setting-switch="raise-to-wake"></div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Haptics</span>
+                <div class="switch is-on" data-setting-switch="haptics"></div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Time Format</span>
+                <span class="setting-value" id="time-format-value">24-hour</span>
+              </div>
+              <div class="setting-sub">Tap the watch face time to switch.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Timezone</span>
+                <span class="setting-value" id="timezone-value">Local</span>
+              </div>
+              <div class="setting-sub">Used for local time and sunrise.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Location</span>
+                <span class="setting-value" id="location-value">40.71, -74.01</span>
+              </div>
+              <div class="setting-sub">Used for solar and weather data.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Wi-Fi</span>
+                <span class="setting-value" id="wifi-status-value">Offline</span>
+              </div>
+              <div class="setting-sub" id="wifi-status-sub">Reconnects automatically when available.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Weather</span>
+                <span class="setting-value" id="weather-status-value">Waiting</span>
+              </div>
+              <div class="setting-sub" id="weather-status-sub">Updates automatically while connected.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Wi-Fi Setup</span>
+              </div>
+              <div class="setting-sub">Saved securely on this watch.</div>
+              <div class="setting-fields">
+                <input class="setting-input" id="wifi-ssid-input" type="text" placeholder="SSID" />
+                <input class="setting-input" id="wifi-password-input" type="password" placeholder="Password" />
+              </div>
+              <div class="setting-actions">
+                <button class="setting-action" id="wifi-save-button">Save</button>
+                <button class="setting-action" id="wifi-reconnect-button">Reconnect</button>
+                <button class="setting-action" id="weather-refresh-button">Refresh Weather</button>
+              </div>
+              <div class="setting-sub" id="wifi-action-status">Idle.</div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-top">
+                <span>Installed Apps</span>
+                <span class="setting-value" id="installed-apps-value">0</span>
+              </div>
+              <div class="setting-sub">Available in the app honeycomb.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" data-screen="app">
+        <div class="screen-title" id="app-title">App</div>
+        <div class="muted" id="app-subtitle">App shell preview</div>
+        <div class="app-card app-hero" id="app-hero"></div>
+      </section>
+
+      <div class="nav-pill"></div>
+      <div class="sleep-overlay" id="sleep-overlay"><span>Tap to Wake</span></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      currentScreen: "face",
+      brightness: 100,
+      is24Hour: true,
+      sleeping: false,
+      dimmed: false,
+      lastActivityMs: Date.now(),
+      longPressTimer: null,
+      longPressTriggered: false,
+      settings: {
+        raiseToWake: true,
+        haptics: true,
+      },
+      location: {
+        latitude: 22.3193,
+        longitude: 114.1694,
+      },
+      weather: {
+        lowC: null,
+        highC: null,
+        averageC: null,
+        updatedAt: 0,
+        syncing: false,
+      },
+      apps: [
+        { appId: "phone", title: "Phone", subtitle: "Recent calls and favorites", color: "#34c759", target: "shell", glyph: "☎" },
+        { appId: "music", title: "Music", subtitle: "Now playing and library", color: "#ff3b30", target: "shell", glyph: "♪" },
+        { appId: "maps", title: "Maps", subtitle: "Nearby and recent destinations", color: "#007aff", target: "shell", glyph: "⌖" },
+        { appId: "workout", title: "Workout", subtitle: "Rings, runs, and intervals", color: "#34c759", target: "shell", glyph: "◎" },
+        { appId: "heart", title: "Heart", subtitle: "Pulse and wellness snapshot", color: "#ff3b30", target: "shell", glyph: "♥" },
+        { appId: "home", title: "Home", subtitle: "Rooms, scenes, and accessories", color: "#34c759", target: "shell", glyph: "⌂" },
+        { appId: "timer", title: "Timer", subtitle: "Quick countdown presets", color: "#007aff", target: "shell", glyph: "◷" },
+        { appId: "sleep", title: "Sleep", subtitle: "Schedule and recovery", color: "#34c759", target: "shell", glyph: "☾" },
+        { appId: "wallet", title: "Wallet", subtitle: "Cards and passes", color: "#007aff", target: "shell", glyph: "▣" },
+        { appId: "settings", title: "Settings", subtitle: "Brightness, sound, and system", color: "#8e8e93", target: "settings", glyph: "⚙" },
+        { appId: "weather", title: "Weather", subtitle: "Current conditions and forecast", color: "#30b0c7", target: "shell", glyph: "☀" },
+        { appId: "messages", title: "Messages", subtitle: "Recent conversations", color: "#34c759", target: "shell", glyph: "✉" },
+        { appId: "calendar", title: "Calendar", subtitle: "Today and upcoming events", color: "#ff453a", target: "shell", glyph: "5" },
+        { appId: "alarm", title: "Alarm", subtitle: "Alarms and wake schedule", color: "#ff9f0a", target: "shell", glyph: "⏰" },
+        { appId: "camera", title: "Camera", subtitle: "Remote camera controls", color: "#8e8e93", target: "shell", glyph: "◉" },
+        { appId: "compass", title: "Compass", subtitle: "Heading and elevation", color: "#5e5ce6", target: "shell", glyph: "◇" },
+        { appId: "activity", title: "Activity", subtitle: "Move, exercise, and stand", color: "#bf5af2", target: "shell", glyph: "◌" },
+        { appId: "calculator", title: "Calculator", subtitle: "Quick calculations", color: "#ff9f0a", target: "shell", glyph: "+" },
+        { appId: "find", title: "Find", subtitle: "Locate people and devices", color: "#64d2ff", target: "shell", glyph: "⌾" },
+      ],
+      controls: [
+        { label: "Wi-Fi", color: "#007aff", enabled: true, icon: "wifi" },
+        { label: "Silent", color: "#ff3b30", enabled: false, icon: "silent" },
+        { label: "Focus", color: "#34c759", enabled: true, icon: "focus" },
+        { label: "Torch", color: "#007aff", enabled: false, icon: "torch" },
+        { label: "Theater", color: "#ff3b30", enabled: false, icon: "theater" },
+        { label: "Bluetooth", color: "#007aff", enabled: false, icon: "bluetooth" },
+      ],
+      addedDemoApp: false,
+    };
+
+    const WEATHER_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+
+    const screens = Array.from(document.querySelectorAll(".screen"));
+    const navButtons = Array.from(document.querySelectorAll("[data-nav]"));
+    const watch = document.querySelector(".watch");
+    const sleepOverlay = document.getElementById("sleep-overlay");
+    const appGrid = document.getElementById("app-grid");
+    const gridScroll = document.querySelector(".grid-scroll");
+    const controlTiles = document.getElementById("control-tiles");
+    const brightnessValue = document.getElementById("brightness-value");
+    const brightnessSlider = document.getElementById("brightness-slider");
+    const controlBrightnessSlider = document.getElementById("control-brightness-slider");
+    const controlTime = document.getElementById("control-time");
+    const installedAppsValue = document.getElementById("installed-apps-value");
+    const timeFormatValue = document.getElementById("time-format-value");
+    const timezoneValue = document.getElementById("timezone-value");
+    const locationValue = document.getElementById("location-value");
+    const wifiStatusValue = document.getElementById("wifi-status-value");
+    const wifiStatusSub = document.getElementById("wifi-status-sub");
+    const weatherStatusValue = document.getElementById("weather-status-value");
+    const weatherStatusSub = document.getElementById("weather-status-sub");
+    const wifiSsidInput = document.getElementById("wifi-ssid-input");
+    const wifiPasswordInput = document.getElementById("wifi-password-input");
+    const wifiSaveButton = document.getElementById("wifi-save-button");
+    const wifiReconnectButton = document.getElementById("wifi-reconnect-button");
+    const weatherRefreshButton = document.getElementById("weather-refresh-button");
+    const wifiActionStatus = document.getElementById("wifi-action-status");
+    const appTitle = document.getElementById("app-title");
+    const appSubtitle = document.getElementById("app-subtitle");
+    const appHero = document.getElementById("app-hero");
+    const addAppButton = document.getElementById("add-app-button");
+    const solarStage = document.querySelector(".solar-stage");
+    const faceTime = document.getElementById("face-time");
+    const faceDate = document.getElementById("face-date");
+    const faceDay = document.getElementById("face-day");
+    const timeRing = document.getElementById("time-ring");
+    const tectonicRing = document.getElementById("tectonic-ring");
+    const solarRing = document.getElementById("solar-ring");
+    const solarSun = document.getElementById("solar-sun");
+    const weatherLowValue = document.getElementById("weather-low-value");
+    const weatherHighValue = document.getElementById("weather-high-value");
+    const weatherAverageValue = document.getElementById("weather-average-value");
+    const sunriseValue = document.getElementById("sunrise-value");
+
+    const controlIcons = {
+      wifi: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5C7.5 4.2 16.5 4.2 22 8.5"></path><path d="M5 12.5C9 9.6 15 9.6 19 12.5"></path><path d="M8.5 16.3C10.8 14.9 13.2 14.9 15.5 16.3"></path><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle></svg>',
+      silent: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h4l5-4v12l-5-4H5z"></path><path d="M17 9l4 6"></path><path d="M21 9l-4 6"></path></svg>',
+      focus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4"></path><path d="M12 17v4"></path><path d="M3 12h4"></path><path d="M17 12h4"></path><circle cx="12" cy="12" r="4.5"></circle></svg>',
+      torch: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1.8 6.5h2.3L9.8 21l1.3-7H8z"></path></svg>',
+      theater: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8s3-3 9-3 9 3 9 3-3 3-9 3-9-3-9-3z"></path><path d="M3 16s3-3 9-3 9 3 9 3-3 3-9 3-9-3-9-3z"></path><path d="M4 4l16 16"></path></svg>',
+      bluetooth: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7.5 16 16l-4 3V5l4 3-8 8.5"></path></svg>'
+    };
+
+    function recordActivity() {
+      state.lastActivityMs = Date.now();
+      if (state.sleeping) {
+        setSleeping(false);
+        return false;
+      }
+      if (state.dimmed) {
+        setDimmed(false);
+      }
+      return true;
+    }
+
+    function setSleeping(sleeping) {
+      state.sleeping = sleeping;
+      sleepOverlay.classList.toggle("is-visible", sleeping);
+      if (sleeping) {
+        setDimmed(false);
+      } else {
+        applyBrightness();
+      }
+    }
+
+    function setDimmed(dimmed) {
+      state.dimmed = dimmed;
+      applyBrightness();
+    }
+
+    function applyBrightness() {
+      const effectiveBrightness = state.sleeping ? 0 : (state.dimmed ? 0.2 : state.brightness / 100);
+      document.documentElement.style.setProperty("--watch-brightness", String(effectiveBrightness));
+    }
+
+    function showScreen(screenName) {
+      state.currentScreen = screenName;
+      screens.forEach((screen) => screen.classList.toggle("is-visible", screen.dataset.screen === screenName));
+      navButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.nav === screenName));
+    }
+
+    function isLeapYear(year) {
+      if (year % 400 === 0) return true;
+      if (year % 100 === 0) return false;
+      return year % 4 === 0;
+    }
+
+    function dayOfYear(year, month, day) {
+      const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (isLeapYear(year)) {
+        daysInMonth[1] = 29;
+      }
+      let doy = 0;
+      for (let index = 0; index < month - 1; index += 1) {
+        doy += daysInMonth[index];
+      }
+      return doy + day;
+    }
+
+    function solarDeclination(doy) {
+      return 23.45 * Math.sin((Math.PI / 180) * (360 / 365) * (doy - 81));
+    }
+
+    function hourAngleSunrise(latitude, declination) {
+      let cosOmega = -Math.tan((Math.PI / 180) * latitude) * Math.tan((Math.PI / 180) * declination);
+      let status = "ok";
+      if (cosOmega < -1) {
+        cosOmega = -1;
+        status = "polar-day";
+      } else if (cosOmega > 1) {
+        cosOmega = 1;
+        status = "polar-night";
+      }
+      return {
+        angle: (180 / Math.PI) * Math.acos(cosOmega),
+        status,
+      };
+    }
+
+    function toClockString(totalMinutes) {
+      const wrapped = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+      const hour24 = Math.floor(wrapped / 60);
+      const minute = wrapped % 60;
+      if (state.is24Hour) {
+        return `${hour24}:${String(minute).padStart(2, "0")}`;
+      }
+      let hour12 = hour24 % 12;
+      if (hour12 === 0) hour12 = 12;
+      return `${hour12}:${String(minute).padStart(2, "0")}`;
+    }
+
+    function calculateSunTimes(now) {
+      const doy = dayOfYear(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      const declination = solarDeclination(doy);
+      const sunriseCalc = hourAngleSunrise(state.location.latitude, declination);
+      if (sunriseCalc.status === "polar-day") {
+        return { status: "polar-day", sunriseMinutes: 0, sunsetMinutes: 1440, daylightMinutes: 1440 };
+      }
+      if (sunriseCalc.status === "polar-night") {
+        return { status: "polar-night", sunriseMinutes: 0, sunsetMinutes: 0, daylightMinutes: 0 };
+      }
+      const solarNoon = 12 - (state.location.longitude / 15);
+      const utcOffsetHours = -now.getTimezoneOffset() / 60;
+      const sunriseHours = solarNoon - (sunriseCalc.angle / 15);
+      const sunsetHours = solarNoon + (sunriseCalc.angle / 15);
+      const sunriseMinutes = (sunriseHours + utcOffsetHours) * 60;
+      const sunsetMinutes = (sunsetHours + utcOffsetHours) * 60;
+      return {
+        status: "ok",
+        sunriseMinutes,
+        sunsetMinutes,
+        daylightMinutes: Math.max(0, Math.round(sunsetMinutes - sunriseMinutes)),
+      };
+    }
+
+    function placeOnDial(element, angleDeg, radius) {
+      const radians = ((angleDeg - 90) * Math.PI) / 180;
+      const centerX = 98;
+      const centerY = 98;
+      const x = centerX + Math.cos(radians) * radius;
+      const y = centerY + Math.sin(radians) * radius;
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+    }
+
+    function buildRing(percent, color, trailColor) {
+      const angle = Math.max(0, Math.min(360, percent * 3.6));
+      return `conic-gradient(from -90deg, ${color} 0deg ${angle}deg, ${trailColor} ${angle}deg 360deg)`;
+    }
+
+    async function fetchWeather() {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+      const url = new URL("https://api.open-meteo.com/v1/forecast");
+      url.searchParams.set("latitude", state.location.latitude.toFixed(4));
+      url.searchParams.set("longitude", state.location.longitude.toFixed(4));
+      url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min");
+      url.searchParams.set("forecast_days", "1");
+      url.searchParams.set("timezone", "auto");
+
+      if (!navigator.onLine) {
+        return;
+      }
+
+      state.weather.syncing = true;
+
+      try {
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          signal: controller.signal,
+          headers: {
+            "accept": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Weather request failed with ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const low = payload?.daily?.temperature_2m_min?.[0];
+        const high = payload?.daily?.temperature_2m_max?.[0];
+
+        if (typeof low !== "number" || typeof high !== "number") {
+          throw new Error("Weather payload missing daily temperatures");
+        }
+
+        state.weather.lowC = Math.round(low);
+        state.weather.highC = Math.round(high);
+        state.weather.averageC = Math.round((low + high) / 2);
+        state.weather.updatedAt = Date.now();
+      } catch (error) {
+        console.warn(error);
+      } finally {
+        state.weather.syncing = false;
+        window.clearTimeout(timeoutId);
+        renderTime();
+      }
+    }
+
+    function loadPreviewWifiCredentials() {
+      state.settings.wifiSsid = localStorage.getItem("watchOS.preview.wifiSsid") || "";
+      if (wifiSsidInput) {
+        wifiSsidInput.value = state.settings.wifiSsid;
+      }
+      if (wifiPasswordInput) {
+        wifiPasswordInput.value = "";
+      }
+    }
+
+    function minuteToRingAngle(totalMinutes) {
+      const wrapped = ((totalMinutes % 1440) + 1440) % 1440;
+      return (wrapped / 1440) * 360;
+    }
+
+    function renderTime() {
+      const now = new Date();
+      const timeText = now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: !state.is24Hour,
+      }).replace(/^0/, "");
+      const dateText = now.toLocaleDateString([], { day: "2-digit", month: "short" }).toUpperCase();
+      const dayText = now.toLocaleDateString([], { weekday: "short" }).toUpperCase();
+      faceTime.textContent = timeText;
+      controlTime.textContent = timeText;
+      faceDate.textContent = dateText;
+      faceDay.textContent = dayText;
+      renderSolarFace(now);
+      renderSettings();
+    }
+
+    function renderSolarFace(now) {
+      const totalMinutes = now.getHours() * 60 + now.getMinutes();
+      const events = calculateSunTimes(now);
+      const sunriseMinutes = Math.round(events.sunriseMinutes || 0);
+      const dayIndex = dayOfYear(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      const plateAngle = 35 + (((dayIndex * 3) + now.getHours()) % 110);
+      const currentAngle = minuteToRingAngle(totalMinutes);
+      const sunriseAngle = minuteToRingAngle(sunriseMinutes);
+      let orbColor = "#ffd60a";
+      let shadowColor = "rgba(255, 214, 10, 0.5)";
+      let solarOpacity = 1;
+
+      if (events.status === "polar-night" || totalMinutes < sunriseMinutes || totalMinutes > Math.round(events.sunsetMinutes || 0)) {
+        orbColor = "#8e8e93";
+        shadowColor = "rgba(142, 142, 147, 0.2)";
+        solarOpacity = 0.12;
+      }
+
+      timeRing.style.background = buildRing((totalMinutes / 1440) * 100, "#ffffff", "rgba(255, 255, 255, 0.08)");
+      tectonicRing.style.background = buildRing((plateAngle / 180) * 100, "#3a6ea5", "rgba(58, 110, 165, 0.14)");
+
+      if (events.status === "polar-day") {
+        solarRing.style.background = "conic-gradient(from -90deg, #ff9f0a 0deg 360deg)";
+        solarOpacity = 0.82;
+      } else if (events.status === "ok" && totalMinutes > sunriseMinutes && totalMinutes <= Math.round(events.sunsetMinutes || 0)) {
+        solarRing.style.background = `conic-gradient(from -90deg, transparent 0deg ${sunriseAngle}deg, #ff9f0a ${sunriseAngle}deg ${currentAngle}deg, transparent ${currentAngle}deg 360deg)`;
+      } else {
+        solarRing.style.background = `conic-gradient(from -90deg, transparent 0deg ${sunriseAngle}deg, rgba(255, 159, 10, 0.25) ${sunriseAngle}deg ${Math.min(sunriseAngle + 1, 360)}deg, transparent ${Math.min(sunriseAngle + 1, 360)}deg 360deg)`;
+      }
+
+      solarRing.style.opacity = `${solarOpacity}`;
+      solarSun.style.background = orbColor;
+      solarSun.style.boxShadow = `0 0 10px ${shadowColor}`;
+      placeOnDial(solarSun, currentAngle, 90);
+
+      if (events.status === "polar-day") {
+        sunriseValue.textContent = "All day";
+      } else if (events.status === "polar-night") {
+        sunriseValue.textContent = "No rise";
+      } else {
+        sunriseValue.textContent = toClockString(sunriseMinutes);
+      }
+
+      if (typeof state.weather.lowC === "number" && typeof state.weather.highC === "number") {
+        weatherLowValue.textContent = `L ${state.weather.lowC}C`;
+        weatherHighValue.textContent = `H ${state.weather.highC}C`;
+        weatherAverageValue.textContent = `${state.weather.averageC}C AVG`;
+      } else if (state.weather.syncing) {
+        weatherLowValue.textContent = "L sync";
+        weatherHighValue.textContent = "H sync";
+        weatherAverageValue.textContent = "SYNCING";
+      } else {
+        weatherLowValue.textContent = "L --";
+        weatherHighValue.textContent = "H --";
+        weatherAverageValue.textContent = "-- AVG";
+      }
+    }
+
+    function renderGrid() {
+      appGrid.innerHTML = "";
+      state.apps.forEach((app, index) => {
+        const slot = getHoneycombSlot(index);
+        const glyph = app.glyph || app.title.replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "?";
+        const button = document.createElement("button");
+        button.className = "app-icon";
+        button.style.width = `${slot.size}px`;
+        button.style.height = `${slot.size}px`;
+        button.style.left = `${slot.x - slot.size / 2}px`;
+        button.style.top = `${slot.y - slot.size / 2}px`;
+        button.style.background = app.color;
+        button.textContent = glyph;
+        button.title = app.title;
+        button.dataset.baseX = String(slot.x);
+        button.dataset.baseY = String(slot.y);
+        button.dataset.baseSize = String(slot.size);
+        button.addEventListener("click", () => {
+          if (!recordActivity()) {
+            return;
+          }
+          openApp(app);
+        });
+        appGrid.appendChild(button);
+      });
+      const pages = Math.max(1, Math.ceil(state.apps.length / 19));
+      appGrid.style.height = `${pages * 262 + 250}px`;
+      installedAppsValue.textContent = String(state.apps.length);
+      updateGridFocus();
+    }
+
+    function getHoneycombSlot(index) {
+      const pageIndex = Math.floor(index / 19);
+      const clusterSlot = index % 19;
+      const slot = getClusterSlot(clusterSlot);
+      const xStep = 70;
+      const yStep = 61;
+      const centerX = 184;
+      const centerY = 224 + pageIndex * 300;
+      return {
+        x: centerX + slot.q * xStep + slot.r * xStep / 2,
+        y: centerY + slot.r * yStep,
+        size: slot.ring === 0 ? 76 : slot.ring === 1 ? 62 : 48,
+      };
+    }
+
+    function updateGridFocus() {
+      const viewportCenterX = appGrid.clientWidth / 2;
+      const viewportCenterY = gridScroll.scrollTop + gridScroll.clientHeight / 2;
+      const focusRadius = 150;
+      const maxShrink = 6;
+      const centerPull = 0;
+      appGrid.querySelectorAll(".app-icon").forEach((button) => {
+        const baseX = Number(button.dataset.baseX);
+        const baseY = Number(button.dataset.baseY);
+        const baseSize = Number(button.dataset.baseSize);
+        const dx = baseX - viewportCenterX;
+        const dy = baseY - viewportCenterY;
+        const radialDistance = Math.max(Math.abs(dx), Math.abs(dy)) + Math.min(Math.abs(dx), Math.abs(dy)) / 2;
+        const distance = Math.min(radialDistance, focusRadius);
+        const shrink = (distance / focusRadius) * maxShrink;
+        const size = Math.max(34, baseSize - shrink);
+        const pull = ((focusRadius - distance) / focusRadius) * centerPull;
+        const adjustedX = baseX - (dx > 0 ? pull : dx < 0 ? -pull : 0);
+        const adjustedY = baseY - (dy > 0 ? pull / 2 : dy < 0 ? -pull / 2 : 0);
+        const opacity = distance < 104 ? 1 : 0.78;
+        button.style.width = `${size}px`;
+        button.style.height = `${size}px`;
+        button.style.left = `${adjustedX - size / 2}px`;
+        button.style.top = `${adjustedY - size / 2}px`;
+        button.style.opacity = `${opacity}`;
+        button.style.transform = distance < 104 ? "scale(1)" : "scale(0.96)";
+      });
+    }
+
+    function getClusterSlot(clusterSlot) {
+      const directions = [
+        { q: 1, r: 0 },
+        { q: 0, r: 1 },
+        { q: -1, r: 1 },
+        { q: -1, r: 0 },
+        { q: 0, r: -1 },
+        { q: 1, r: -1 },
+      ];
+      if (clusterSlot === 0) {
+        return { q: 0, r: 0, ring: 0 };
+      }
+      let remaining = clusterSlot - 1;
+      let ring = 1;
+      while (remaining >= 6 * ring) {
+        remaining -= 6 * ring;
+        ring += 1;
+      }
+      let q = 0;
+      let r = -ring;
+      for (const direction of directions) {
+        const steps = ring;
+        if (remaining < steps) {
+          q += direction.q * remaining;
+          r += direction.r * remaining;
+          break;
+        }
+        q += direction.q * steps;
+        r += direction.r * steps;
+        remaining -= steps;
+      }
+      return { q, r, ring };
+    }
+
+    function renderControls() {
+      controlTiles.innerHTML = "";
+      state.controls.forEach((tile) => {
+        const button = document.createElement("button");
+        button.className = "tile";
+        button.style.background = tile.enabled ? tile.color : "#2c2c2e";
+        const iconWrap = document.createElement("div");
+        iconWrap.className = "tile-icon-wrap";
+        iconWrap.style.background = tile.enabled ? "rgba(255,255,255,0.92)" : "rgba(72,72,74,0.9)";
+        iconWrap.style.color = tile.enabled ? tile.color : "#ffffff";
+        iconWrap.style.opacity = tile.enabled ? "1" : "0.78";
+        iconWrap.innerHTML = controlIcons[tile.icon] || controlIcons.focus;
+        const label = document.createElement("div");
+        label.textContent = tile.label;
+        button.appendChild(iconWrap);
+        button.appendChild(label);
+        button.addEventListener("click", () => {
+          if (!recordActivity()) {
+            return;
+          }
+          if (tile.label === "Bluetooth") {
+            return;
+          }
+          tile.enabled = !tile.enabled;
+          renderControls();
+        });
+        controlTiles.appendChild(button);
+      });
+      controlBrightnessSlider.value = String(state.brightness);
+    }
+
+    function openApp(app) {
+      if (app.target === "settings") {
+        showScreen("settings");
+        return;
+      }
+      appTitle.textContent = app.title;
+      appSubtitle.textContent = app.subtitle;
+      const summaries = {
+        phone: ["Phone not paired", "Companion connection is not configured"],
+        music: ["Nothing playing", "Choose music from your library"],
+        weather: ["Forecast is current", "Conditions refresh automatically"],
+        messages: ["You're all caught up", "New messages appear here"],
+        workout: ["Ready to move?", "Start a workout from your watch"],
+        heart: ["Heart snapshot", "Wear the watch snugly to measure"],
+        timer: ["No active timers", "Tap to create a countdown"],
+        alarm: ["No active alarms", "Tap to set a wake time"],
+      };
+      const summary = summaries[app.appId] || ["Ready on your wrist", "Swipe right to return to your apps"];
+      appHero.style.background = `linear-gradient(145deg, ${app.color}, #151515 125%)`;
+      appHero.innerHTML = `<div class="app-state-icon">${app.glyph || "•"}</div><div class="app-state-title">${summary[0]}</div><div class="app-state-detail">${summary[1]}</div>`;
+      showScreen("app");
+    }
+
+    function renderSettings() {
+      brightnessValue.textContent = `${state.brightness}%`;
+      brightnessSlider.value = String(state.brightness);
+      timeFormatValue.textContent = state.is24Hour ? "24-hour" : "12-hour";
+      timezoneValue.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "Local";
+      locationValue.textContent = `${state.location.latitude.toFixed(2)}, ${state.location.longitude.toFixed(2)}`;
+      wifiStatusValue.textContent = navigator.onLine ? (state.settings.wifiSsid || "Connected") : "Offline";
+      wifiStatusSub.textContent = navigator.onLine ? "Reconnects automatically when available." : "Connect to update time and weather.";
+      if (state.weather.syncing) {
+        weatherStatusValue.textContent = "Syncing";
+        weatherStatusSub.textContent = "Updating today's forecast.";
+      } else if (typeof state.weather.lowC === "number" && typeof state.weather.highC === "number") {
+        weatherStatusValue.textContent = `${state.weather.lowC}/${state.weather.highC}C`;
+        weatherStatusSub.textContent = `Updated ${new Date(state.weather.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+      } else {
+        weatherStatusValue.textContent = navigator.onLine ? "Waiting" : "Offline";
+        weatherStatusSub.textContent = navigator.onLine ? "Waiting for the first update." : "Connect to refresh weather.";
+      }
+    }
+
+    function bindSettings() {
+      brightnessSlider.addEventListener("input", (event) => {
+        if (!recordActivity()) {
+          return;
+        }
+        state.brightness = Number(event.target.value);
+        applyBrightness();
+        renderSettings();
+      });
+      controlBrightnessSlider.addEventListener("input", (event) => {
+        if (!recordActivity()) {
+          return;
+        }
+        state.brightness = Number(event.target.value);
+        applyBrightness();
+        renderSettings();
+      });
+      document.querySelectorAll("[data-setting-switch]").forEach((element) => {
+        element.addEventListener("click", () => {
+          if (!recordActivity()) {
+            return;
+          }
+          const key = element.dataset.settingSwitch === "raise-to-wake" ? "raiseToWake" : "haptics";
+          state.settings[key] = !state.settings[key];
+          element.classList.toggle("is-on", state.settings[key]);
+        });
+      });
+      wifiSaveButton.addEventListener("click", () => {
+        if (!recordActivity()) {
+          return;
+        }
+        state.settings.wifiSsid = wifiSsidInput.value.trim();
+        localStorage.setItem("watchOS.preview.wifiSsid", state.settings.wifiSsid);
+        wifiPasswordInput.value = "";
+        wifiActionStatus.textContent = state.settings.wifiSsid ? "Credentials saved locally for preview." : "Stored Wi-Fi cleared.";
+        renderSettings();
+      });
+      wifiReconnectButton.addEventListener("click", async () => {
+        if (!recordActivity()) {
+          return;
+        }
+        wifiActionStatus.textContent = "Reconnect requested.";
+        renderSettings();
+        await fetchWeather();
+      });
+      weatherRefreshButton.addEventListener("click", async () => {
+        if (!recordActivity()) {
+          return;
+        }
+        wifiActionStatus.textContent = "Weather refresh requested.";
+        renderSettings();
+        await fetchWeather();
+      });
+    }
+
+    function bindFaceInteractions() {
+      let pointerDownPoint = null;
+      let pointerDownTime = 0;
+
+      function isCenterPoint(clientX, clientY) {
+        const rect = solarStage.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = clientX - centerX;
+        const dy = clientY - centerY;
+        return (dx * dx) + (dy * dy) <= (70 * 70);
+      }
+
+      solarStage.addEventListener("pointerdown", (event) => {
+        if (!recordActivity()) {
+          return;
+        }
+        if (!isCenterPoint(event.clientX, event.clientY)) {
+          pointerDownPoint = null;
+          return;
+        }
+        pointerDownPoint = { x: event.clientX, y: event.clientY };
+        pointerDownTime = Date.now();
+        state.longPressTriggered = false;
+        clearTimeout(state.longPressTimer);
+        state.longPressTimer = setTimeout(() => {
+          state.longPressTriggered = true;
+          showScreen("settings");
+        }, 700);
+      });
+
+      function clearFacePress(event) {
+        if (!pointerDownPoint) {
+          clearTimeout(state.longPressTimer);
+          return;
+        }
+        clearTimeout(state.longPressTimer);
+        const duration = Date.now() - pointerDownTime;
+        const dx = event.clientX - pointerDownPoint.x;
+        const dy = event.clientY - pointerDownPoint.y;
+        if (!state.longPressTriggered && duration <= 350 && Math.abs(dx) <= 18 && Math.abs(dy) <= 18) {
+          state.is24Hour = !state.is24Hour;
+          renderTime();
+        }
+        pointerDownPoint = null;
+      }
+
+      solarStage.addEventListener("pointerup", clearFacePress);
+      solarStage.addEventListener("pointercancel", () => {
+        pointerDownPoint = null;
+        clearTimeout(state.longPressTimer);
+      });
+      solarStage.addEventListener("pointerleave", () => {
+        clearTimeout(state.longPressTimer);
+      });
+    }
+
+    function bindNav() {
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!recordActivity()) {
+            return;
+          }
+          showScreen(button.dataset.nav);
+        });
+      });
+      addAppButton.addEventListener("click", () => {
+        if (!recordActivity() || state.addedDemoApp) {
+          return;
+        }
+        state.apps.push({
+          appId: "weather",
+          title: "Weather",
+          subtitle: "Conditions and hourly forecast",
+          color: "#4cc9ff",
+          target: "shell",
+        });
+        state.addedDemoApp = true;
+        renderGrid();
+        showScreen("grid");
+      });
+      sleepOverlay.addEventListener("click", () => {
+        recordActivity();
+      });
+      watch.addEventListener("pointerdown", () => {
+        recordActivity();
+      });
+    }
+
+    function monitorIdleState() {
+      const idleMs = Date.now() - state.lastActivityMs;
+      if (!state.sleeping && idleMs >= 120000) {
+        setSleeping(true);
+        return;
+      }
+      if (!state.sleeping && !state.dimmed && idleMs >= 30000) {
+        setDimmed(true);
+      }
+    }
+
+    renderTime();
+    renderGrid();
+    renderControls();
+    loadPreviewWifiCredentials();
+    renderSettings();
+    applyBrightness();
+    bindSettings();
+    bindFaceInteractions();
+    bindNav();
+    gridScroll.addEventListener("scroll", updateGridFocus, { passive: true });
+    window.addEventListener("online", () => {
+      fetchWeather();
+    });
+    setInterval(renderTime, 60000);
+    setInterval(fetchWeather, WEATHER_REFRESH_INTERVAL_MS);
+    setInterval(monitorIdleState, 250);
+    fetchWeather();
+  </script>
+</body>
+</html>

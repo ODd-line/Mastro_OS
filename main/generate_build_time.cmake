@@ -1,0 +1,11 @@
+if(NOT DEFINED OUTPUT_FILE)
+    message(FATAL_ERROR "OUTPUT_FILE is required")
+endif()
+
+string(TIMESTAMP WATCH_OS_BUILD_EPOCH "%s" UTC)
+math(EXPR WATCH_OS_RTC_SEED_EPOCH "${WATCH_OS_BUILD_EPOCH} + 15")
+file(WRITE "${OUTPUT_FILE}"
+    "#ifndef WATCH_OS_BUILD_TIME_H\n"
+    "#define WATCH_OS_BUILD_TIME_H\n"
+    "#define WATCH_OS_BUILD_EPOCH ${WATCH_OS_RTC_SEED_EPOCH}LL\n"
+    "#endif\n")
