@@ -185,14 +185,6 @@ extern "C" {
 #define WATCH_OS_NTP_SYNC_POLL_MS              250U
 #endif
 
-#ifndef WATCH_OS_WIFI_SSID
-#define WATCH_OS_WIFI_SSID                     ""
-#endif
-
-#ifndef WATCH_OS_WIFI_PASSWORD
-#define WATCH_OS_WIFI_PASSWORD                 ""
-#endif
-
 #ifndef WATCH_OS_WIFI_MAXIMUM_RETRY
 #define WATCH_OS_WIFI_MAXIMUM_RETRY            5U
 #endif

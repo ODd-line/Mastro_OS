@@ -5,6 +5,7 @@
 #include "bsp/touch.h"
 #include "driver/spi_common.h"
 #include "esp_check.h"
+#include "esp_lcd_co5300.h"
 #include "esp_io_expander.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -62,9 +63,13 @@ esp_err_t watch_board_display_bus_deinit(void)
     return spi_bus_free(BSP_LCD_SPI_NUM);
 }
 
-esp_err_t watch_board_display_set_brightness(uint8_t brightness_percent)
+esp_err_t watch_board_display_set_brightness(esp_lcd_panel_handle_t panel_handle, uint8_t brightness_percent)
 {
-    return bsp_display_brightness_set(brightness_percent);
+    if(panel_handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    return esp_lcd_panel_co5300_set_brightness(panel_handle, brightness_percent);
 }
 
 esp_err_t watch_board_touch_new(esp_lcd_touch_handle_t *touch_handle)

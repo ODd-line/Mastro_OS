@@ -81,8 +81,10 @@ board by changing only its name.
 
 The backup contains every readable flash partition, including NVS and therefore
 stored Wi-Fi credentials. Keep both the `.bin` file and its checksum private and
-delete them securely when no longer required. A SHA-256 sidecar verifies file
-integrity; it is not a digital signature and provides no publisher identity.
+delete them securely when no longer required. New backups are created with
+owner-only host permissions, but they still require encrypted host storage. A
+SHA-256 sidecar verifies file integrity; it is not a digital signature and
+provides no publisher identity.
 
 ## Restore
 

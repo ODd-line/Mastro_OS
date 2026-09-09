@@ -29,6 +29,7 @@ bool wifi_manager_is_connected(void);
 wifi_manager_state_t wifi_manager_get_state(void);
 esp_err_t wifi_manager_get_ssid(char *buffer, size_t buffer_size);
 esp_err_t wifi_manager_set_credentials(const char *ssid, const char *password);
+esp_err_t wifi_manager_forget_credentials(void);
 esp_err_t wifi_manager_set_enabled(bool enabled);
 esp_err_t wifi_manager_reconnect(void);
 

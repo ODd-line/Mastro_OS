@@ -10,11 +10,13 @@ idf_component_register(
         "${CMAKE_CURRENT_LIST_DIR}/../hal/hal_touch.c"
         "${WATCH_BOARD_SOURCE}"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/ui_manager.c"
+        "${CMAKE_CURRENT_LIST_DIR}/../ui/ui_styles.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_app.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_face.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_grid.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_control.c"
         "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_settings.c"
+        "${CMAKE_CURRENT_LIST_DIR}/../ui/screens/screen_silvercare.c"
         "${CMAKE_CURRENT_LIST_DIR}/../utils/time_utils.c"
         "${CMAKE_CURRENT_LIST_DIR}/../utils/weather_service.c"
         "${CMAKE_CURRENT_LIST_DIR}/../utils/wifi_manager.c"
@@ -27,6 +29,7 @@ idf_component_register(
         esp_http_client
         esp_io_expander
         esp_lcd
+        espressif__esp_lcd_co5300
         esp_lcd_touch
         esp_netif
         esp_psram

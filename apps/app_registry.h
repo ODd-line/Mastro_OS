@@ -19,7 +19,8 @@ extern "C" {
 /** Destination used when a launcher tile is activated. */
 typedef enum {
     WATCH_APP_TARGET_SHELL = 0,
-    WATCH_APP_TARGET_SETTINGS
+    WATCH_APP_TARGET_SETTINGS,
+    WATCH_APP_TARGET_SILVERCARE
 } watch_app_target_t;
 
 /**

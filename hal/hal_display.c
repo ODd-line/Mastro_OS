@@ -136,16 +136,30 @@ void hal_display_deinit(void)
 
 esp_err_t hal_display_set_brightness(uint8_t brightness_percent)
 {
+    esp_err_t ret;
+
     if(brightness_percent > 100U) {
         brightness_percent = 100U;
     }
 
-    s_display_state.brightness_percent = brightness_percent;
-    if(s_display_state.sleeping || s_display_state.dimmed) {
+    if(!s_display_state.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if(brightness_percent == s_display_state.brightness_percent) {
         return ESP_OK;
     }
 
-    return hal_display_apply_brightness(brightness_percent);
+    if(s_display_state.sleeping || s_display_state.dimmed) {
+        s_display_state.brightness_percent = brightness_percent;
+        return ESP_OK;
+    }
+
+    ret = hal_display_apply_brightness(brightness_percent);
+    if(ret == ESP_OK) {
+        s_display_state.brightness_percent = brightness_percent;
+    }
+    return ret;
 }
 
 uint8_t hal_display_get_brightness(void)
@@ -228,7 +242,7 @@ static esp_err_t hal_display_apply_brightness(uint8_t brightness_percent)
         return ESP_ERR_INVALID_STATE;
     }
 
-    return watch_board_display_set_brightness(brightness_percent);
+    return watch_board_display_set_brightness(s_display_state.panel_handle, brightness_percent);
 }
 
 static void hal_display_flush_callback(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_buffer)

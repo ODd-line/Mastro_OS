@@ -8,7 +8,7 @@ medical, emergency, payment, access-control or other safety-critical use.
 | Area | Current behavior |
 | --- | --- |
 | Wi-Fi mode | Station mode using ESP-IDF Wi-Fi APIs |
-| Wi-Fi secrets | SSID and password stored in the `watch_cfg` NVS namespace |
+| Wi-Fi secrets | Stored once in `watch_cfg`; ESP-IDF Wi-Fi storage is RAM-only |
 | Storage protection | Flash encryption is disabled |
 | Boot authenticity | ESP32-S3 secure boot is disabled |
 | Weather | HTTPS to Open-Meteo with ESP-IDF's full certificate bundle |
@@ -35,11 +35,46 @@ archives or paste them into issue reports. Entering Wi-Fi credentials on the wat
 stores them as ordinary NVS strings. With flash encryption disabled, physical
 access to the device can expose those values.
 
+Compile-time Wi-Fi credential macros are intentionally ignored so passwords are
+not embedded in distributable firmware. Settings provides a long-press **Hold
+Erase** action. It deletes the application NVS keys, clears legacy ESP-IDF Wi-Fi
+configuration, disconnects the radio and overwrites application credential
+buffers. Use it before transferring or decommissioning a watch. Logical erasure
+is not forensic erasure on unencrypted flash.
+
 `scripts/flash_safe.sh` reads a complete 16 MB factory image before flashing.
 That image includes NVS, settings and any credentials present on the watch. Files
 under `backups/` are ignored by Git, but ignore rules are not access controls.
-Store backups only on trusted encrypted storage, do not upload them, and never
-restore one watch's image onto another watch.
+The safe-flash script creates new backups with owner-only permissions, but host
+disk encryption is still required. Store backups only on trusted encrypted
+storage, do not upload them, and never restore one watch's image onto another
+watch.
+
+## Physical attacker boundary
+
+The development build cannot prevent forceful extraction or firmware replacement
+by someone holding the watch. USB Serial/JTAG, ROM download mode, plaintext flash
+and unsigned boot remain available for development and recovery. A malicious
+replacement image can read credentials after the owner next enters them.
+
+Protecting against that threat requires one coordinated provisioning process,
+validated first on disposable hardware:
+
+1. Generate and protect offline Secure Boot v2 signing keys. Never commit keys or
+	store them beside release binaries.
+2. Enable Secure Boot v2 and verify that unsigned and modified images are rejected.
+3. Enable flash encryption in release mode, NVS encryption, encrypted updates and
+	anti-rollback for the pinned ESP-IDF release.
+4. Test power-loss recovery, signed updates, rollback rejection and credential
+	erasure before restricting debug access.
+5. Disable JTAG and restrict ROM download through ESP32-S3 eFuses only after the
+	complete recovery path succeeds on a pilot device.
+6. Track each provisioned device and key-revocation state without storing private
+	keys in this repository.
+
+These eFuse operations can permanently prevent normal reflashing or recovery.
+They must never run from ordinary build or flash scripts and require explicit
+owner consent for each physical device.
 
 ## Flashing trust boundary
 
@@ -66,6 +101,12 @@ eFuses. At minimum, evaluate:
 - dependency and certificate-bundle update procedures
 - removal or protection of debug and serial access
 - credential reset and device decommissioning workflows
+
+The firmware already uses RAM-only ESP-IDF Wi-Fi storage, bounded credential
+inputs, memory zeroization, TLS certificate and hostname verification, disabled
+weather redirects, and an on-watch credential-erasure workflow. These reduce
+accidental exposure but do not substitute for encrypted flash and authenticated
+boot.
 
 Secure boot and flash encryption can permanently change device behavior. Develop
 their provisioning process on disposable hardware before using a personal watch.

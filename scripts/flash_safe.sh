@@ -1,8 +1,9 @@
 #!/bin/sh
 set -eu
+umask 077
 
 FLASH_SIZE_BYTES=16777216
-BAUD_RATE=921600
+BAUD_RATE=${BAUD_RATE:-921600}
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 BACKUP_DIR="$PROJECT_DIR/backups"
 PORT=${1:-}
@@ -44,6 +45,7 @@ backup="$BACKUP_DIR/factory-${timestamp}.bin"
 metadata="$backup.sha256"
 
 printf 'Reading complete 16 MB factory flash from %s...\n' "$PORT"
+printf 'This private backup may contain Wi-Fi credentials; do not upload or share it.\n'
 esptool.py --chip esp32s3 --port "$PORT" --baud "$BAUD_RATE" read_flash 0 "$FLASH_SIZE_BYTES" "$backup"
 
 actual_size=$(wc -c < "$backup" | tr -d ' ')

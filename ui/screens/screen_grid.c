@@ -92,7 +92,6 @@ static esp_err_t screen_grid_build_layout(void)
     lv_obj_set_style_bg_color(s_grid_state.root, UI_COLOR_BACKGROUND, 0);
     lv_obj_set_style_bg_opa(s_grid_state.root, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_grid_state.root, 0, 0);
-
     s_grid_state.scroll_container = lv_obj_create(s_grid_state.root);
     if(s_grid_state.scroll_container == NULL) {
         return ESP_ERR_NO_MEM;
@@ -272,12 +271,18 @@ static lv_obj_t *screen_grid_create_icon(lv_obj_t *parent,
         return NULL;
     }
 
-    /* Circular bubbles and a larger center app better match the watchOS honeycomb launcher. */
     lv_obj_set_size(icon_button, icon_size, icon_size);
     lv_obj_set_style_radius(icon_button, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(icon_button, lv_color_hex(app_descriptor->accent_color_hex), 0);
-    lv_obj_set_style_bg_opa(icon_button, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(icon_button, 0, 0);
+    lv_obj_set_style_bg_opa(icon_button, UI_APP_ICON_BACKGROUND_OPA, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(icon_button, UI_APP_ICON_PRESSED_OPA, LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(icon_button, 1, 0);
+    lv_obj_set_style_border_color(icon_button,
+                                  lv_color_mix(UI_COLOR_PRIMARY_TEXT,
+                                               lv_color_hex(app_descriptor->accent_color_hex),
+                                               LV_OPA_20),
+                                  0);
+    lv_obj_set_style_border_opa(icon_button, UI_APP_ICON_BORDER_OPA, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_width(icon_button, 0, 0);
     lv_obj_set_style_pad_all(icon_button, 0, 0);
     lv_obj_add_flag(icon_button, LV_OBJ_FLAG_PRESS_LOCK);
@@ -399,13 +404,13 @@ static void screen_grid_update_focus_scaling(void)
                        adjusted_center_x - (focused_size / 2),
                        adjusted_center_y - (focused_size / 2));
         lv_obj_set_style_opa(icon_state->button,
-                             (radial_distance < UI_APP_GRID_LABEL_FADE_RADIUS_PX) ? LV_OPA_COVER : LV_OPA_80,
+                             (radial_distance < UI_APP_GRID_LABEL_FADE_RADIUS_PX) ? LV_OPA_COVER : UI_APP_GRID_EDGE_OPA,
                              0);
 
         icon_label = lv_obj_get_child(icon_state->button, 0);
         if(icon_label != NULL) {
             lv_obj_set_style_text_opa(icon_label,
-                                      (radial_distance < UI_APP_GRID_LABEL_FADE_RADIUS_PX) ? LV_OPA_COVER : LV_OPA_70,
+                                      (radial_distance < UI_APP_GRID_LABEL_FADE_RADIUS_PX) ? LV_OPA_COVER : UI_APP_GRID_LABEL_EDGE_OPA,
                                       0);
         }
     }

@@ -16,11 +16,11 @@ static const watch_app_descriptor_t BUILTIN_APPS[] = {
     { "phone", "Phone", "Recent calls and favorites", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
     { "music", "Music", "Now playing and library", UI_COLOR_ACCENT_RED_HEX, WATCH_APP_TARGET_SHELL, true },
     { "maps", "Maps", "Nearby and recent destinations", UI_COLOR_ACCENT_BLUE_HEX, WATCH_APP_TARGET_SHELL, true },
-    { "workout", "Workout", "Rings, runs, and intervals", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
-    { "heart", "Heart", "Pulse and wellness snapshot", UI_COLOR_ACCENT_RED_HEX, WATCH_APP_TARGET_SHELL, true },
+    { "workout", "Workout", "Planning; motion sensor unavailable", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
+    { "heart", "Heart", "Heart-rate sensor unavailable", UI_COLOR_ACCENT_RED_HEX, WATCH_APP_TARGET_SHELL, true },
     { "home", "Home", "Rooms, scenes, and accessories", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
     { "timer", "Timer", "Quick countdown presets", UI_COLOR_ACCENT_BLUE_HEX, WATCH_APP_TARGET_SHELL, true },
-    { "sleep", "Sleep", "Schedule and recovery", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
+    { "sleep", "Sleep", "Schedule; sleep sensing unavailable", UI_COLOR_ACCENT_GREEN_HEX, WATCH_APP_TARGET_SHELL, true },
     { "wallet", "Wallet", "Cards and passes", UI_COLOR_ACCENT_BLUE_HEX, WATCH_APP_TARGET_SHELL, true },
     { "settings", "Settings", "Brightness, sound, and system", UI_COLOR_ACCENT_BLUE_HEX, WATCH_APP_TARGET_SETTINGS, true },
     { "weather", "Weather", "Current conditions and forecast", 0x30B0C7UL, WATCH_APP_TARGET_SHELL, true },
@@ -29,9 +29,10 @@ static const watch_app_descriptor_t BUILTIN_APPS[] = {
     { "alarm", "Alarm", "Alarms and wake schedule", 0xFF9F0AUL, WATCH_APP_TARGET_SHELL, true },
     { "camera", "Camera", "Remote camera controls", 0x8E8E93UL, WATCH_APP_TARGET_SHELL, true },
     { "compass", "Compass", "Heading and elevation", 0x5E5CE6UL, WATCH_APP_TARGET_SHELL, true },
-    { "activity", "Activity", "Move, exercise, and stand", 0xBF5AF2UL, WATCH_APP_TARGET_SHELL, true },
+    { "activity", "Activity", "Motion sensor unavailable", 0xBF5AF2UL, WATCH_APP_TARGET_SHELL, true },
     { "calculator", "Calculator", "Quick calculations", 0xFF9F0AUL, WATCH_APP_TARGET_SHELL, true },
     { "find", "Find", "Locate people and devices", 0x64D2FFUL, WATCH_APP_TARGET_SHELL, true },
+    { "silvercare", "SilverCare", "Medicine box companion", 0x24A878UL, WATCH_APP_TARGET_SILVERCARE, true },
 };
 
 typedef struct {

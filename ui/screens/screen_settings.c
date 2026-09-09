@@ -16,9 +16,18 @@
 #include "hal/hal_display.h"
 #include "ui/ui_manager.h"
 #include "ui/ui_defs.h"
+#include "ui/ui_styles.h"
 #include "utils/time_utils.h"
 #include "utils/weather_service.h"
 #include "utils/wifi_manager.h"
+
+#define SCREEN_SETTINGS_KEYBOARD_HEIGHT_PX       164
+#define SCREEN_SETTINGS_CONTENT_TOP_PX           (UI_HEADER_TOP_OFFSET_PX + 48)
+#define SCREEN_SETTINGS_CONTENT_HEIGHT_PX        (UI_SCREEN_HEIGHT - (UI_HEADER_TOP_OFFSET_PX + 64))
+#define SCREEN_SETTINGS_KEYBOARD_CONTENT_HEIGHT  (UI_SCREEN_HEIGHT - SCREEN_SETTINGS_CONTENT_TOP_PX - \
+                                                  SCREEN_SETTINGS_KEYBOARD_HEIGHT_PX - UI_SMALL_GAP_PX)
+#define SCREEN_SETTINGS_WIFI_PANEL_HEIGHT_PX     240
+#define SCREEN_SETTINGS_ACTION_BUTTON_WIDTH_PX   88
 
 typedef struct {
     bool initialized;
@@ -47,7 +56,10 @@ static screen_settings_state_t s_settings_state;
 
 static esp_err_t screen_settings_build_layout(void);
 static lv_obj_t *screen_settings_create_row(lv_obj_t *parent, const char *title, lv_obj_t **value_label);
-static lv_obj_t *screen_settings_create_action_button(lv_obj_t *parent, const char *label, lv_event_cb_t event_cb);
+static lv_obj_t *screen_settings_create_action_button(lv_obj_t *parent,
+                                                      const char *label,
+                                                      lv_event_cb_t event_cb,
+                                                      lv_event_code_t event_code);
 static void screen_settings_update_action_status(const char *message);
 static void screen_settings_switch_event_cb(lv_event_t *event);
 static void screen_settings_slider_event_cb(lv_event_t *event);
@@ -55,7 +67,7 @@ static void screen_settings_wifi_textarea_event_cb(lv_event_t *event);
 static void screen_settings_wifi_keyboard_event_cb(lv_event_t *event);
 static void screen_settings_save_wifi_event_cb(lv_event_t *event);
 static void screen_settings_reconnect_wifi_event_cb(lv_event_t *event);
-static void screen_settings_refresh_weather_event_cb(lv_event_t *event);
+static void screen_settings_forget_wifi_event_cb(lv_event_t *event);
 
 /** {@inheritDoc screen_settings_init} */
 esp_err_t screen_settings_init(void)
@@ -185,7 +197,6 @@ static esp_err_t screen_settings_build_layout(void)
     lv_obj_set_size(s_settings_state.root, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT);
     lv_obj_set_style_bg_color(s_settings_state.root, UI_COLOR_BACKGROUND, 0);
     lv_obj_set_style_bg_opa(s_settings_state.root, LV_OPA_COVER, 0);
-
     header_label = lv_label_create(s_settings_state.root);
     if(header_label == NULL) {
         return ESP_ERR_NO_MEM;
@@ -203,7 +214,7 @@ static esp_err_t screen_settings_build_layout(void)
 
     lv_obj_set_size(s_settings_state.content,
                     UI_SCREEN_WIDTH - (2 * UI_HEADER_SIDE_PADDING_PX),
-                    UI_SCREEN_HEIGHT - (UI_HEADER_TOP_OFFSET_PX + 64));
+                    SCREEN_SETTINGS_CONTENT_HEIGHT_PX);
     lv_obj_align(s_settings_state.content, LV_ALIGN_BOTTOM_MID, 0, -UI_EDGE_PADDING_PX);
     lv_obj_set_style_bg_opa(s_settings_state.content, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_settings_state.content, 0, 0);
@@ -227,6 +238,8 @@ static esp_err_t screen_settings_build_layout(void)
     lv_slider_set_value(s_settings_state.slider_brightness, s_settings_state.brightness_percent, LV_ANIM_OFF);
     lv_obj_align(s_settings_state.slider_brightness, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_add_event_cb(s_settings_state.slider_brightness, screen_settings_slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(s_settings_state.slider_brightness, screen_settings_slider_event_cb, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_event_cb(s_settings_state.slider_brightness, screen_settings_slider_event_cb, LV_EVENT_PRESS_LOST, NULL);
 
     row = screen_settings_create_row(s_settings_state.content, "Raise to Wake", NULL);
     if(row == NULL) {
@@ -337,11 +350,8 @@ static esp_err_t screen_settings_build_layout(void)
     }
 
     lv_obj_set_width(row, lv_pct(100));
-    lv_obj_set_height(row, 196);
-    lv_obj_set_style_bg_color(row, UI_COLOR_CONTROL_TILE, 0);
-    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(row, UI_CORNER_RADIUS_PX, 0);
-    lv_obj_set_style_border_width(row, 0, 0);
+    lv_obj_set_height(row, SCREEN_SETTINGS_WIFI_PANEL_HEIGHT_PX);
+    ui_styles_apply_glass_surface(row, UI_COLOR_CONTROL_TILE, 14);
     lv_obj_set_style_pad_all(row, UI_EDGE_PADDING_PX, 0);
     lv_obj_set_style_pad_gap(row, UI_SMALL_GAP_PX, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
@@ -361,6 +371,7 @@ static esp_err_t screen_settings_build_layout(void)
     }
     lv_obj_set_width(s_settings_state.wifi_ssid_input, lv_pct(100));
     lv_textarea_set_one_line(s_settings_state.wifi_ssid_input, true);
+    lv_textarea_set_max_length(s_settings_state.wifi_ssid_input, 32);
     lv_textarea_set_placeholder_text(s_settings_state.wifi_ssid_input, "SSID");
     lv_obj_add_event_cb(s_settings_state.wifi_ssid_input,
                         screen_settings_wifi_textarea_event_cb,
@@ -373,6 +384,7 @@ static esp_err_t screen_settings_build_layout(void)
     }
     lv_obj_set_width(s_settings_state.wifi_password_input, lv_pct(100));
     lv_textarea_set_one_line(s_settings_state.wifi_password_input, true);
+    lv_textarea_set_max_length(s_settings_state.wifi_password_input, 64);
     lv_textarea_set_password_mode(s_settings_state.wifi_password_input, true);
     lv_textarea_set_placeholder_text(s_settings_state.wifi_password_input, "Password");
     lv_obj_add_event_cb(s_settings_state.wifi_password_input,
@@ -398,12 +410,21 @@ static esp_err_t screen_settings_build_layout(void)
     lv_obj_set_style_border_width(button_row, 0, 0);
     lv_obj_set_style_pad_all(button_row, 0, 0);
     lv_obj_set_style_pad_gap(button_row, UI_SMALL_GAP_PX, 0);
-    lv_obj_set_flex_flow(button_row, LV_FLEX_FLOW_ROW_WRAP);
+    lv_obj_set_flex_flow(button_row, LV_FLEX_FLOW_ROW);
     lv_obj_clear_flag(button_row, LV_OBJ_FLAG_SCROLLABLE);
 
-    if(screen_settings_create_action_button(button_row, "Save", screen_settings_save_wifi_event_cb) == NULL ||
-       screen_settings_create_action_button(button_row, "Reconnect", screen_settings_reconnect_wifi_event_cb) == NULL ||
-       screen_settings_create_action_button(button_row, "Refresh Weather", screen_settings_refresh_weather_event_cb) == NULL) {
+    if(screen_settings_create_action_button(button_row,
+                                            "Save",
+                                            screen_settings_save_wifi_event_cb,
+                                            LV_EVENT_CLICKED) == NULL ||
+       screen_settings_create_action_button(button_row,
+                                            "Reconnect",
+                                            screen_settings_reconnect_wifi_event_cb,
+                                            LV_EVENT_CLICKED) == NULL ||
+       screen_settings_create_action_button(button_row,
+                                            "Hold Erase",
+                                            screen_settings_forget_wifi_event_cb,
+                                            LV_EVENT_ALL) == NULL) {
         return ESP_ERR_NO_MEM;
     }
 
@@ -419,7 +440,7 @@ static esp_err_t screen_settings_build_layout(void)
     if(s_settings_state.wifi_keyboard == NULL) {
         return ESP_ERR_NO_MEM;
     }
-    lv_obj_set_size(s_settings_state.wifi_keyboard, UI_SCREEN_WIDTH, 164);
+    lv_obj_set_size(s_settings_state.wifi_keyboard, UI_SCREEN_WIDTH, SCREEN_SETTINGS_KEYBOARD_HEIGHT_PX);
     lv_obj_align(s_settings_state.wifi_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_add_flag(s_settings_state.wifi_keyboard, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(s_settings_state.wifi_keyboard, screen_settings_wifi_keyboard_event_cb, LV_EVENT_ALL, NULL);
@@ -456,10 +477,7 @@ static lv_obj_t *screen_settings_create_row(lv_obj_t *parent, const char *title,
 
     lv_obj_set_width(row, lv_pct(100));
     lv_obj_set_height(row, 72);
-    lv_obj_set_style_bg_color(row, UI_COLOR_CONTROL_TILE, 0);
-    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(row, 14, 0);
-    lv_obj_set_style_border_width(row, 0, 0);
+    ui_styles_apply_glass_surface(row, UI_COLOR_CONTROL_TILE, 14);
     lv_obj_set_style_pad_all(row, 12, 0);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -487,7 +505,10 @@ static lv_obj_t *screen_settings_create_row(lv_obj_t *parent, const char *title,
     return row;
 }
 
-static lv_obj_t *screen_settings_create_action_button(lv_obj_t *parent, const char *label, lv_event_cb_t event_cb)
+static lv_obj_t *screen_settings_create_action_button(lv_obj_t *parent,
+                                                      const char *label,
+                                                      lv_event_cb_t event_cb,
+                                                      lv_event_code_t event_code)
 {
     lv_obj_t *button = lv_btn_create(parent);
     lv_obj_t *button_label;
@@ -496,13 +517,10 @@ static lv_obj_t *screen_settings_create_action_button(lv_obj_t *parent, const ch
         return NULL;
     }
 
-    lv_obj_set_height(button, 40);
-    lv_obj_set_style_radius(button, UI_CORNER_RADIUS_PX, 0);
-    lv_obj_set_style_bg_color(button, UI_COLOR_ACCENT_BLUE, 0);
-    lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(button, 0, 0);
-    lv_obj_set_style_pad_hor(button, UI_EDGE_PADDING_PX, 0);
-    lv_obj_add_event_cb(button, event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_size(button, SCREEN_SETTINGS_ACTION_BUTTON_WIDTH_PX, 40);
+    ui_styles_apply_glass_surface(button, UI_COLOR_ACCENT_BLUE, 10);
+    lv_obj_set_style_pad_hor(button, 6, 0);
+    lv_obj_add_event_cb(button, event_cb, event_code, NULL);
 
     button_label = lv_label_create(button);
     if(button_label == NULL) {
@@ -538,14 +556,22 @@ static void screen_settings_switch_event_cb(lv_event_t *event)
 static void screen_settings_slider_event_cb(lv_event_t *event)
 {
     lv_obj_t *target = lv_event_get_target(event);
+    const lv_event_code_t code = lv_event_get_code(event);
 
     if(target == NULL) {
         return;
     }
 
     s_settings_state.brightness_percent = (uint8_t)lv_slider_get_value(target);
-    (void)hal_display_set_brightness(s_settings_state.brightness_percent);
-    screen_settings_refresh();
+    if(s_settings_state.value_brightness != NULL) {
+        lv_label_set_text_fmt(s_settings_state.value_brightness, "%u%%", s_settings_state.brightness_percent);
+    }
+     if((code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) &&
+         hal_display_set_brightness(s_settings_state.brightness_percent) != ESP_OK) {
+        s_settings_state.brightness_percent = hal_display_get_brightness();
+        lv_slider_set_value(target, s_settings_state.brightness_percent, LV_ANIM_OFF);
+        lv_label_set_text_fmt(s_settings_state.value_brightness, "%u%%", s_settings_state.brightness_percent);
+    }
 }
 
 static void screen_settings_wifi_textarea_event_cb(lv_event_t *event)
@@ -558,6 +584,10 @@ static void screen_settings_wifi_textarea_event_cb(lv_event_t *event)
 
     lv_keyboard_set_textarea(s_settings_state.wifi_keyboard, target);
     lv_obj_clear_flag(s_settings_state.wifi_keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_settings_state.wifi_keyboard);
+    lv_obj_set_height(s_settings_state.content, SCREEN_SETTINGS_KEYBOARD_CONTENT_HEIGHT);
+    lv_obj_align(s_settings_state.content, LV_ALIGN_TOP_MID, 0, SCREEN_SETTINGS_CONTENT_TOP_PX);
+    lv_obj_scroll_to_view_recursive(target, LV_ANIM_OFF);
 }
 
 static void screen_settings_wifi_keyboard_event_cb(lv_event_t *event)
@@ -571,6 +601,8 @@ static void screen_settings_wifi_keyboard_event_cb(lv_event_t *event)
     if(code == LV_EVENT_CANCEL || code == LV_EVENT_READY) {
         lv_keyboard_set_textarea(s_settings_state.wifi_keyboard, NULL);
         lv_obj_add_flag(s_settings_state.wifi_keyboard, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_height(s_settings_state.content, SCREEN_SETTINGS_CONTENT_HEIGHT_PX);
+        lv_obj_align(s_settings_state.content, LV_ALIGN_BOTTOM_MID, 0, -UI_EDGE_PADDING_PX);
         if(s_settings_state.wifi_ssid_input != NULL) {
             lv_obj_clear_state(s_settings_state.wifi_ssid_input, LV_STATE_FOCUSED);
         }
@@ -618,15 +650,25 @@ static void screen_settings_reconnect_wifi_event_cb(lv_event_t *event)
     screen_settings_refresh();
 }
 
-static void screen_settings_refresh_weather_event_cb(lv_event_t *event)
+static void screen_settings_forget_wifi_event_cb(lv_event_t *event)
 {
-    (void)event;
+    const lv_event_code_t code = lv_event_get_code(event);
 
-    if(weather_service_request_refresh() == ESP_OK) {
-        screen_settings_update_action_status("Weather refresh requested");
+    if(code == LV_EVENT_CLICKED) {
+        screen_settings_update_action_status("Hold Erase to forget Wi-Fi");
+        return;
+    }
+    if(code != LV_EVENT_LONG_PRESSED) {
+        return;
+    }
+
+    if(wifi_manager_forget_credentials() == ESP_OK) {
+        lv_textarea_set_text(s_settings_state.wifi_ssid_input, "");
+        lv_textarea_set_text(s_settings_state.wifi_password_input, "");
+        screen_settings_update_action_status("Wi-Fi credentials erased");
     }
     else {
-        screen_settings_update_action_status("Refresh unavailable");
+        screen_settings_update_action_status("Credential erase failed");
     }
 
     screen_settings_refresh();

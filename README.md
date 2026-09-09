@@ -95,6 +95,12 @@ sharing a flash backup. The current development configuration stores the Wi-Fi
 SSID and password in NVS without flash encryption. Anyone with physical access
 to the watch or a complete flash backup may be able to recover them.
 
+Wi-Fi driver persistence is RAM-only, HTTPS redirects are rejected, and Settings
+provides a long-press **Hold Erase** action for decommissioning. The firmware does
+not accept compile-time Wi-Fi credentials because those remain recoverable from
+distributed binaries. Logical deletion cannot defeat forensic recovery from
+unencrypted flash.
+
 Weather requests use HTTPS with ESP-IDF's trusted certificate bundle. SNTP time
 sync is not cryptographically authenticated and must not be treated as a trusted
 time source for security decisions. Secure boot, flash encryption, signed OTA,

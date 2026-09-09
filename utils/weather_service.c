@@ -183,6 +183,8 @@ static esp_err_t weather_service_fetch_daily_forecast(int16_t *low_temperature_c
     http_config.method = HTTP_METHOD_GET;
     http_config.timeout_ms = WATCH_OS_WEATHER_HTTP_TIMEOUT_MS;
     http_config.crt_bundle_attach = esp_crt_bundle_attach;
+    http_config.disable_auto_redirect = true;
+    http_config.skip_cert_common_name_check = false;
     http_config.user_agent = "watch_os/1.0";
 
     client = esp_http_client_init(&http_config);

@@ -41,8 +41,10 @@ static void wifi_manager_event_handler(void *arg,
                                        int32_t event_id,
                                        void *event_data);
 static bool wifi_manager_has_credentials(void);
+static void wifi_manager_secure_zero(void *buffer, size_t size);
 static esp_err_t wifi_manager_load_credentials(void);
 static esp_err_t wifi_manager_store_credentials(const char *ssid, const char *password);
+static esp_err_t wifi_manager_erase_credentials(void);
 static esp_err_t wifi_manager_start_stack(void);
 static esp_err_t wifi_manager_apply_station_config(void);
 
@@ -57,14 +59,12 @@ esp_err_t wifi_manager_init(void)
 
     memset(&s_wifi_manager, 0, sizeof(s_wifi_manager));
     s_wifi_manager.state = WIFI_MANAGER_STATE_DISABLED;
-    snprintf(s_wifi_manager.ssid, sizeof(s_wifi_manager.ssid), "%s", WATCH_OS_WIFI_SSID);
-    snprintf(s_wifi_manager.password, sizeof(s_wifi_manager.password), "%s", WATCH_OS_WIFI_PASSWORD);
     ESP_RETURN_ON_ERROR(wifi_manager_load_credentials(), TAG, "failed to load stored wifi credentials");
     s_wifi_manager.configured = wifi_manager_has_credentials();
     s_wifi_manager.enabled = s_wifi_manager.configured;
     if(!s_wifi_manager.configured) {
         s_wifi_manager.initialized = true;
-        ESP_LOGW(TAG, "WATCH_OS_WIFI_SSID is empty; Wi-Fi weather sync is disabled");
+        ESP_LOGW(TAG, "Wi-Fi is not configured; network sync is disabled");
         return ESP_OK;
     }
 
@@ -126,6 +126,8 @@ esp_err_t wifi_manager_set_credentials(const char *ssid, const char *password)
 
     ESP_RETURN_ON_ERROR(wifi_manager_store_credentials(ssid, password), TAG, "failed to store wifi credentials");
 
+    wifi_manager_secure_zero(s_wifi_manager.ssid, sizeof(s_wifi_manager.ssid));
+    wifi_manager_secure_zero(s_wifi_manager.password, sizeof(s_wifi_manager.password));
     snprintf(s_wifi_manager.ssid, sizeof(s_wifi_manager.ssid), "%s", ssid);
     snprintf(s_wifi_manager.password, sizeof(s_wifi_manager.password), "%s", password);
     s_wifi_manager.configured = wifi_manager_has_credentials();
@@ -139,6 +141,34 @@ esp_err_t wifi_manager_set_credentials(const char *ssid, const char *password)
 
     ESP_RETURN_ON_ERROR(wifi_manager_start_stack(), TAG, "failed to start wifi stack");
     return wifi_manager_apply_station_config();
+}
+
+esp_err_t wifi_manager_forget_credentials(void)
+{
+    if(!s_wifi_manager.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ESP_RETURN_ON_ERROR(wifi_manager_erase_credentials(), TAG, "failed to erase wifi credentials");
+    ESP_RETURN_ON_ERROR(wifi_manager_start_stack(), TAG, "failed to initialize wifi for credential erase");
+
+    if(s_wifi_manager.radio_started) {
+        (void)esp_wifi_disconnect();
+        ESP_RETURN_ON_ERROR(esp_wifi_stop(), TAG, "failed to stop wifi while forgetting credentials");
+        s_wifi_manager.radio_started = false;
+    }
+
+    ESP_RETURN_ON_ERROR(esp_wifi_restore(), TAG, "failed to erase legacy wifi driver storage");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_storage(WIFI_STORAGE_RAM), TAG, "failed to restore RAM-only wifi storage");
+
+    wifi_manager_secure_zero(s_wifi_manager.ssid, sizeof(s_wifi_manager.ssid));
+    wifi_manager_secure_zero(s_wifi_manager.password, sizeof(s_wifi_manager.password));
+    s_wifi_manager.configured = false;
+    s_wifi_manager.enabled = false;
+    s_wifi_manager.connected = false;
+    s_wifi_manager.retry_count = 0U;
+    s_wifi_manager.state = WIFI_MANAGER_STATE_DISABLED;
+    return ESP_OK;
 }
 
 esp_err_t wifi_manager_reconnect(void)
@@ -223,6 +253,16 @@ static bool wifi_manager_has_credentials(void)
     return (s_wifi_manager.ssid[0] != '\0');
 }
 
+static void wifi_manager_secure_zero(void *buffer, size_t size)
+{
+    volatile unsigned char *cursor = (volatile unsigned char *)buffer;
+
+    while(size > 0U) {
+        *cursor++ = 0U;
+        size--;
+    }
+}
+
 static esp_err_t wifi_manager_load_credentials(void)
 {
     esp_err_t ret;
@@ -275,6 +315,30 @@ static esp_err_t wifi_manager_store_credentials(const char *ssid, const char *pa
     return ret;
 }
 
+static esp_err_t wifi_manager_erase_credentials(void)
+{
+    esp_err_t ret;
+    nvs_handle_t nvs_handle;
+
+    ESP_RETURN_ON_ERROR(nvs_open(WATCH_OS_NVS_NAMESPACE, NVS_READWRITE, &nvs_handle),
+                        TAG,
+                        "nvs_open failed while erasing wifi credentials");
+
+    ret = nvs_erase_key(nvs_handle, WATCH_OS_NVS_KEY_WIFI_SSID);
+    if(ret == ESP_OK || ret == ESP_ERR_NVS_NOT_FOUND) {
+        ret = nvs_erase_key(nvs_handle, WATCH_OS_NVS_KEY_WIFI_PASSWORD);
+    }
+    if(ret == ESP_ERR_NVS_NOT_FOUND) {
+        ret = ESP_OK;
+    }
+    if(ret == ESP_OK) {
+        ret = nvs_commit(nvs_handle);
+    }
+
+    nvs_close(nvs_handle);
+    return ret;
+}
+
 static esp_err_t wifi_manager_start_stack(void)
 {
     wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
@@ -298,6 +362,7 @@ static esp_err_t wifi_manager_start_stack(void)
     }
 
     ESP_RETURN_ON_ERROR(esp_wifi_init(&wifi_init_config), TAG, "failed to init wifi");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_storage(WIFI_STORAGE_RAM), TAG, "failed to select RAM-only wifi storage");
     ESP_RETURN_ON_ERROR(esp_event_handler_register(WIFI_EVENT,
                                                    ESP_EVENT_ANY_ID,
                                                    &wifi_manager_event_handler,
@@ -334,8 +399,12 @@ static esp_err_t wifi_manager_apply_station_config(void)
     wifi_config.sta.pmf_cfg.capable = true;
     wifi_config.sta.pmf_cfg.required = false;
 
-    ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "failed to set station mode");
-    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &wifi_config), TAG, "failed to set wifi config");
+    ret = esp_wifi_set_mode(WIFI_MODE_STA);
+    if(ret == ESP_OK) {
+        ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    }
+    wifi_manager_secure_zero(&wifi_config, sizeof(wifi_config));
+    ESP_RETURN_ON_ERROR(ret, TAG, "failed to apply wifi config");
 
     if(!s_wifi_manager.radio_started) {
         ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "failed to start wifi");

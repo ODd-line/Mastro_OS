@@ -16,6 +16,7 @@
 #include "hal/hal_display.h"
 #include "ui/ui_defs.h"
 #include "ui/ui_manager.h"
+#include "ui/ui_styles.h"
 #include "utils/time_utils.h"
 #include "utils/weather_service.h"
 #include "utils/wifi_manager.h"
@@ -146,7 +147,6 @@ static esp_err_t screen_control_build_layout(void)
     lv_obj_set_size(s_control_state.root, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT);
     lv_obj_set_style_bg_color(s_control_state.root, UI_COLOR_BACKGROUND, 0);
     lv_obj_set_style_bg_opa(s_control_state.root, LV_OPA_COVER, 0);
-
     header_label = lv_label_create(s_control_state.root);
     status_label = lv_label_create(s_control_state.root);
     if(header_label == NULL || status_label == NULL) {
@@ -205,6 +205,8 @@ static esp_err_t screen_control_build_layout(void)
     lv_obj_set_style_bg_color(brightness_slider, UI_COLOR_PRIMARY_TEXT, LV_PART_KNOB);
     lv_obj_align(brightness_slider, LV_ALIGN_BOTTOM_LEFT, 48, -42);
     lv_obj_add_event_cb(brightness_slider, screen_control_brightness_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(brightness_slider, screen_control_brightness_event_cb, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_event_cb(brightness_slider, screen_control_brightness_event_cb, LV_EVENT_PRESS_LOST, NULL);
     s_control_state.brightness_slider = brightness_slider;
 
     s_control_state.brightness_value_label = lv_label_create(s_control_state.root);
@@ -245,14 +247,10 @@ static lv_obj_t *screen_control_create_tile(lv_obj_t *parent,
     }
 
     lv_obj_set_size(tile, 164, 68);
-    lv_obj_set_style_radius(tile, 8, 0);
-    lv_obj_set_style_border_width(tile, 0, 0);
-    lv_obj_set_style_shadow_width(tile, 0, 0);
+    ui_styles_apply_glass_surface(tile,
+                                  tile_definition->enabled ? lv_color_hex(tile_definition->active_color_hex) : UI_COLOR_CONTROL_TILE,
+                                  8);
     lv_obj_set_style_pad_all(tile, 10, 0);
-    lv_obj_set_style_bg_color(tile,
-                              tile_definition->enabled ? lv_color_hex(tile_definition->active_color_hex) : UI_COLOR_CONTROL_TILE,
-                              0);
-    lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
     lv_obj_add_event_cb(tile, screen_control_tile_event_cb, LV_EVENT_CLICKED, tile_definition);
 
     icon_wrap = lv_obj_create(tile);
@@ -320,7 +318,7 @@ static void screen_control_update_tile_visuals(lv_obj_t *tile, const control_til
         lv_obj_set_style_bg_color(icon_wrap,
                                   tile_definition->enabled ? UI_COLOR_PRIMARY_TEXT : lv_color_hex(0x48484A),
                                   0);
-        lv_obj_set_style_bg_opa(icon_wrap, tile_definition->enabled ? LV_OPA_COVER : LV_OPA_70, 0);
+        lv_obj_set_style_bg_opa(icon_wrap, tile_definition->enabled ? LV_OPA_COVER : LV_OPA_90, 0);
 
         icon_label = lv_obj_get_child(icon_wrap, 0);
         if(icon_label != NULL) {
@@ -450,16 +448,24 @@ static void screen_control_tile_event_cb(lv_event_t *event)
 static void screen_control_brightness_event_cb(lv_event_t *event)
 {
     lv_obj_t *slider = lv_event_get_target(event);
+    const lv_event_code_t code = lv_event_get_code(event);
     const uint8_t brightness = (uint8_t)lv_slider_get_value(slider);
     control_tile_definition_t *theater = screen_control_find_definition("Theater");
 
-    (void)hal_display_set_brightness(brightness);
+    if(s_control_state.brightness_value_label != NULL) {
+        lv_label_set_text_fmt(s_control_state.brightness_value_label, "%u%%", brightness);
+    }
+    if(code != LV_EVENT_RELEASED && code != LV_EVENT_PRESS_LOST) {
+        return;
+    }
+
+    if(hal_display_set_brightness(brightness) != ESP_OK) {
+        screen_control_refresh();
+        return;
+    }
     if(theater != NULL && theater->enabled) {
         theater->enabled = false;
         screen_control_update_tile_visuals(s_control_state.tiles[4], theater);
-    }
-    if(s_control_state.brightness_value_label != NULL) {
-        lv_label_set_text_fmt(s_control_state.brightness_value_label, "%u%%", brightness);
     }
 }
 

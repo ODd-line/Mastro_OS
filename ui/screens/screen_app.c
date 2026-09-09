@@ -13,6 +13,7 @@
 #include "esp_err.h"
 #include "ui/ui_defs.h"
 #include "ui/ui_manager.h"
+#include "ui/ui_styles.h"
 
 typedef struct {
     bool initialized;
@@ -75,7 +76,6 @@ static esp_err_t screen_app_build_layout(void)
     lv_obj_set_size(s_app_state.root, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT);
     lv_obj_set_style_bg_color(s_app_state.root, UI_COLOR_BACKGROUND, 0);
     lv_obj_set_style_bg_opa(s_app_state.root, LV_OPA_COVER, 0);
-
     s_app_state.back_button = lv_btn_create(s_app_state.root);
     if(s_app_state.back_button == NULL) {
         return ESP_ERR_NO_MEM;
@@ -83,9 +83,7 @@ static esp_err_t screen_app_build_layout(void)
 
     lv_obj_set_size(s_app_state.back_button, 56, 56);
     lv_obj_align(s_app_state.back_button, LV_ALIGN_TOP_RIGHT, -12, 12);
-    lv_obj_set_style_radius(s_app_state.back_button, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(s_app_state.back_button, UI_COLOR_CONTROL_TILE, 0);
-    lv_obj_set_style_shadow_width(s_app_state.back_button, 0, 0);
+    ui_styles_apply_glass_surface(s_app_state.back_button, UI_COLOR_CONTROL_TILE, LV_RADIUS_CIRCLE);
     lv_obj_add_event_cb(s_app_state.back_button, screen_app_back_event_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *back_icon = lv_label_create(s_app_state.back_button);
@@ -126,9 +124,7 @@ static esp_err_t screen_app_build_layout(void)
                     UI_SCREEN_WIDTH - (2 * UI_HEADER_SIDE_PADDING_PX),
                     UI_CARD_HEIGHT_PX + UI_CONTROL_TILE_SIZE_PX);
     lv_obj_align(s_app_state.accent_card, LV_ALIGN_CENTER, 0, 28);
-    lv_obj_set_style_radius(s_app_state.accent_card, UI_CORNER_RADIUS_PX, 0);
-    lv_obj_set_style_border_width(s_app_state.accent_card, 0, 0);
-    lv_obj_set_style_shadow_width(s_app_state.accent_card, 0, 0);
+    ui_styles_apply_glass_surface(s_app_state.accent_card, UI_COLOR_CONTROL_TILE, UI_CORNER_RADIUS_PX);
 
     s_app_state.hint_label = lv_label_create(s_app_state.accent_card);
     if(s_app_state.hint_label == NULL) {
@@ -159,8 +155,10 @@ static const char *screen_app_get_summary(const char *app_id)
     if(strcmp(app_id, "music") == 0) return LV_SYMBOL_AUDIO "  Nothing playing\n\nChoose music from your library";
     if(strcmp(app_id, "weather") == 0) return LV_SYMBOL_REFRESH "  Forecast is up to date\n\nConditions refresh automatically";
     if(strcmp(app_id, "messages") == 0) return LV_SYMBOL_EDIT "  You're all caught up\n\nNew messages appear here";
-    if(strcmp(app_id, "workout") == 0) return LV_SYMBOL_CHARGE "  Ready to move?\n\nStart a workout from your watch";
-    if(strcmp(app_id, "heart") == 0) return LV_SYMBOL_PLUS "  Heart snapshot\n\nWear the watch snugly to measure";
+    if(strcmp(app_id, "workout") == 0) return LV_SYMBOL_CHARGE "  Planning only\n\nMotion sensor is not installed";
+    if(strcmp(app_id, "heart") == 0) return LV_SYMBOL_PLUS "  Reading unavailable\n\nHeart-rate sensor is not installed";
+    if(strcmp(app_id, "activity") == 0) return LV_SYMBOL_CHARGE "  Steps unavailable\n\nMotion sensor is not installed";
+    if(strcmp(app_id, "sleep") == 0) return LV_SYMBOL_BELL "  Schedule only\n\nSleep sensing is not installed";
     if(strcmp(app_id, "timer") == 0 || strcmp(app_id, "alarm") == 0) return LV_SYMBOL_BELL "  No active alerts\n\nTap to create one";
     return "Ready on your wrist\n\nSwipe right to return to your apps";
 }

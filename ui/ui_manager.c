@@ -21,6 +21,7 @@
 #include "ui/screens/screen_face.h"
 #include "ui/screens/screen_grid.h"
 #include "ui/screens/screen_settings.h"
+#include "ui/screens/screen_silvercare.h"
 #include "utils/time_utils.h"
 
 typedef struct {
@@ -79,6 +80,10 @@ static const ui_manager_screen_descriptor_t s_screen_descriptors[UI_SCREEN_COUNT
     },
     [UI_SCREEN_APP] = {
         .get_root = screen_app_get_root,
+        .prepare_for_show = ui_manager_prepare_noop,
+    },
+    [UI_SCREEN_SILVERCARE] = {
+        .get_root = screen_silvercare_get_root,
         .prepare_for_show = ui_manager_prepare_noop,
     },
 };
@@ -179,6 +184,9 @@ esp_err_t ui_manager_open_app(const watch_app_descriptor_t *app_descriptor)
         case WATCH_APP_TARGET_SETTINGS:
             return ui_manager_show_screen(UI_SCREEN_SETTINGS, LV_SCR_LOAD_ANIM_MOVE_TOP);
 
+        case WATCH_APP_TARGET_SILVERCARE:
+            return ui_manager_show_screen(UI_SCREEN_SILVERCARE, LV_SCR_LOAD_ANIM_MOVE_TOP);
+
         case WATCH_APP_TARGET_SHELL:
         default:
             ESP_RETURN_ON_ERROR(screen_app_present(app_descriptor), TAG, "screen_app_present failed");
@@ -213,18 +221,21 @@ static esp_err_t ui_manager_register_screens(void)
     ESP_RETURN_ON_ERROR(screen_control_init(), TAG, "screen_control_init failed");
     ESP_RETURN_ON_ERROR(screen_settings_init(), TAG, "screen_settings_init failed");
     ESP_RETURN_ON_ERROR(screen_app_init(), TAG, "screen_app_init failed");
+    ESP_RETURN_ON_ERROR(screen_silvercare_init(), TAG, "screen_silvercare_init failed");
 
     s_ui_manager.screens[UI_SCREEN_FACE] = s_screen_descriptors[UI_SCREEN_FACE].get_root();
     s_ui_manager.screens[UI_SCREEN_GRID] = s_screen_descriptors[UI_SCREEN_GRID].get_root();
     s_ui_manager.screens[UI_SCREEN_CONTROL] = s_screen_descriptors[UI_SCREEN_CONTROL].get_root();
     s_ui_manager.screens[UI_SCREEN_SETTINGS] = s_screen_descriptors[UI_SCREEN_SETTINGS].get_root();
     s_ui_manager.screens[UI_SCREEN_APP] = s_screen_descriptors[UI_SCREEN_APP].get_root();
+    s_ui_manager.screens[UI_SCREEN_SILVERCARE] = s_screen_descriptors[UI_SCREEN_SILVERCARE].get_root();
 
     if(s_ui_manager.screens[UI_SCREEN_FACE] == NULL ||
        s_ui_manager.screens[UI_SCREEN_GRID] == NULL ||
        s_ui_manager.screens[UI_SCREEN_CONTROL] == NULL ||
        s_ui_manager.screens[UI_SCREEN_SETTINGS] == NULL ||
-       s_ui_manager.screens[UI_SCREEN_APP] == NULL) {
+    s_ui_manager.screens[UI_SCREEN_APP] == NULL ||
+    s_ui_manager.screens[UI_SCREEN_SILVERCARE] == NULL) {
         return ESP_ERR_NO_MEM;
     }
 
@@ -501,7 +512,8 @@ static esp_err_t ui_manager_handle_swipe(ui_swipe_direction_t direction)
             }
             break;
 
-        case UI_SCREEN_APP: {
+        case UI_SCREEN_APP:
+        case UI_SCREEN_SILVERCARE: {
             const lv_point_t *start = &s_ui_manager.gesture_state.start_point;
             const bool edge_exit =
                 (direction == UI_SWIPE_RIGHT && start->x <= UI_GESTURE_EDGE_ZONE_PX) ||

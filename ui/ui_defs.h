@@ -148,8 +148,9 @@ extern "C" {
 #define UI_COLOR_ACCENT_GREEN_HEX        0x34C759UL
 #define UI_COLOR_ACCENT_BLUE_HEX         0x007AFFUL
 #define UI_COLOR_PRIMARY_TEXT_HEX        0xFFFFFFUL
-#define UI_COLOR_SECONDARY_TEXT_HEX      0xA1A1A6UL
-#define UI_COLOR_CONTROL_TILE_HEX        0x2C2C2EUL
+#define UI_COLOR_SECONDARY_TEXT_HEX      0xC7C7CCUL
+#define UI_COLOR_CONTROL_TILE_HEX        0x252527UL
+#define UI_COLOR_GLASS_EDGE_HEX          0x8E8E93UL
 #define UI_COLOR_SOLAR_SKY_CENTER_HEX    0x0B0B15UL
 #define UI_COLOR_SOLAR_SKY_EDGE_HEX      0x000000UL
 #define UI_COLOR_SOLAR_DAY_ARC_HEX       0xFF9F0AUL
@@ -170,6 +171,7 @@ extern "C" {
 #define UI_COLOR_PRIMARY_TEXT             lv_color_hex(UI_COLOR_PRIMARY_TEXT_HEX)
 #define UI_COLOR_SECONDARY_TEXT           lv_color_hex(UI_COLOR_SECONDARY_TEXT_HEX)
 #define UI_COLOR_CONTROL_TILE             lv_color_hex(UI_COLOR_CONTROL_TILE_HEX)
+#define UI_COLOR_GLASS_EDGE               lv_color_hex(UI_COLOR_GLASS_EDGE_HEX)
 #define UI_COLOR_SOLAR_SKY_CENTER         lv_color_hex(UI_COLOR_SOLAR_SKY_CENTER_HEX)
 #define UI_COLOR_SOLAR_SKY_EDGE           lv_color_hex(UI_COLOR_SOLAR_SKY_EDGE_HEX)
 #define UI_COLOR_SOLAR_DAY_ARC            lv_color_hex(UI_COLOR_SOLAR_DAY_ARC_HEX)
@@ -204,6 +206,16 @@ extern "C" {
 #define UI_ITEM_GAP_PX                    12
 #define UI_SMALL_GAP_PX                   8
 #define UI_CORNER_RADIUS_PX               18
+#define UI_GLASS_BACKGROUND_OPA           ((lv_opa_t)210)
+#define UI_GLASS_PRESSED_OPA              ((lv_opa_t)232)
+#define UI_GLASS_BORDER_OPA               ((lv_opa_t)72)
+#define UI_GLASS_BORDER_PRESSED_OPA       ((lv_opa_t)145)
+#define UI_GLASS_BORDER_WIDTH_PX          1
+#define UI_APP_GRID_EDGE_OPA              ((lv_opa_t)230)
+#define UI_APP_GRID_LABEL_EDGE_OPA        ((lv_opa_t)220)
+#define UI_APP_ICON_BACKGROUND_OPA        ((lv_opa_t)204)
+#define UI_APP_ICON_PRESSED_OPA           ((lv_opa_t)235)
+#define UI_APP_ICON_BORDER_OPA            ((lv_opa_t)96)
 #define UI_CONTROL_TILE_SIZE_PX           72
 #define UI_CONTROL_ICON_WRAP_SIZE_PX      36
 #define UI_CONTROL_ICON_SIZE_PX           18
@@ -334,6 +346,7 @@ typedef enum {
     UI_SCREEN_CONTROL,
     UI_SCREEN_SETTINGS,
     UI_SCREEN_APP,
+    UI_SCREEN_SILVERCARE,
     UI_SCREEN_COUNT
 } ui_screen_id_t;
 
